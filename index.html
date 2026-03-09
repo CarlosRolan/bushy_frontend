@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Menu</title>
+    <link rel="stylesheet" href="style/styleIndex.css">
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+          }
+        }
+      </script>
+</head>
+
+<body>
+    <div id="menu">
+        <h1>BushyLaberynth</h1>
+        <label>Carlos Rolán Díaz</label>
+        <button onclick="enterGame()">Enter Game</button>
+    </div>
+
+    <div id="background"></div>
+
+    <script>
+        function enterGame() {
+            // Redirect to the game page or perform any necessary actions to start the game
+            window.location.href = "game.html";
+        }
+    </script>
+
+    <script type="module" src="./src/client/menuBackground.js"></script>
+
+</body>
+
+</html>

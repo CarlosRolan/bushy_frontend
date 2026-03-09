@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="style/styleGame.css">
+  <title>Pilla Pilla</title>
+  <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+          }
+        }
+      </script>
+</head>
+
+<body>
+
+  <div id="canvas" class="canvas"></div>
+
+  <div id="endMsg"></div>
+
+  <!-- This div will serve as the black overlay -->
+  <div id="blackOverlay"></div>
+
+  <div id="infoPanel">
+    <p id="infoX">X[]</p>
+    <p id="infoY">Y[]</p>
+    <p id="infoZ">Z[]</p>
+    <p id="infoRotation">Rotation[]</p>
+  </div>
+
+
+  <!-- <script src="dist/bundle.js"></script> -->
+  <script type="module" src="./src/client/index.js"></script>
+
+</body>
+
+</html>

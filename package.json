@@ -1,0 +1,21 @@
+{
+  "name": "proyecto",
+  "version": "1.0.0",
+  "description": "**Nombre del Autor**: Carlos Rolán Díaz   **Fecha**: 20/04/2024",
+  "main": "src/server/server.mjs",
+  "type": "module",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Carlos Rolan Diaz",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^20.14.2",
+    "fs": "^0.0.1-security",
+    "three": "^0.165.0",
+    "ws": "^8.17.1"
+  }
+}

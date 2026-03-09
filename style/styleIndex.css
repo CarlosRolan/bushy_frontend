@@ -1,0 +1,59 @@
+body {
+ margin: 0;
+ /* cursor: none; Oculta el cursor del ratón */
+}
+
+.background {
+ position: relative;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+ z-index: 1;
+ /* Ensure background is behind overlay */
+}
+
+
+#menu {
+ padding: 10px;
+ font-family: Arial, sans-serif;
+ justify-content: center;
+ align-items: center;
+ background-color: #f0f0f0;
+ z-index: 2;
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ transform: translate(-50%, -50%);
+ border: 1px solid #ccc;
+ border-radius: 5px;
+ box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+ z-index: 2;
+ /* Ensure overlay is in front of background */
+}
+
+h1 {
+ font-size: 2em;
+ margin-bottom: 20px;
+}
+
+label {
+ text-align: center;
+ display: block;
+ margin-bottom: 10px;
+}
+
+button {
+ width: 100%;
+ font-size: 1em;
+ background-color: #007bff;
+ color: white;
+ border: none;
+ border-radius: 5px;
+ cursor: pointer;
+ transition: background-color 0.3s;
+}
+
+button:hover {
+ background-color: #0056b3;
+}
