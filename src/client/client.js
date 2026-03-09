@@ -14,13 +14,13 @@ import Msg, {
   ACTION_MAX_PLAYERS
 } from "../msg.mjs";
 import { loossingSound } from "./audioLoader.js";
+import { env } from "process";
 
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
+const ws = new WebSocket(process.env.SERVER_URL);
 
-//const ws = new WebSocket("wss://https://bushy-labyrinth.vercel.app");
-
-const ws = new WebSocket(`${protocol}//${window.location.host}`);
+//const ws = new WebSocket(`${protocol}//${window.location.host}`);
 
 // Handle WebSocket events =======================
 ws.onopen = function () {
