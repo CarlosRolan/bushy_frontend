@@ -14,13 +14,27 @@ import Msg, {
   ACTION_MAX_PLAYERS
 } from "../msg.mjs";
 import { loossingSound } from "./audioLoader.js";
-import { env } from "process";
 
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+const defaultWsUrl = `${protocol}//${window.location.host}`;
 
-const ws = new WebSocket(process.env.SERVER_URL);
+function normalizeWsUrl(url) {
+  if (!url) {
+    return defaultWsUrl;
+  }
 
-//const ws = new WebSocket(`${protocol}//${window.location.host}`);
+  if (url.startsWith("https://")) {
+    return `wss://${url.slice("https://".length)}`;
+  }
+
+  if (url.startsWith("http://")) {
+    return `ws://${url.slice("http://".length)}`;
+  }
+
+  return url;
+}
+
+const ws = new WebSocket(normalizeWsUrl(process.env.SERVER_URL));
 
 // Handle WebSocket events =======================
 ws.onopen = function () {

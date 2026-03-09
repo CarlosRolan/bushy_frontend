@@ -8,6 +8,8 @@
     "doc": "doc"
   },
   "scripts": {
+    "dev": "webpack serve --mode development",
+    "build": "webpack --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Carlos Rolan Diaz",
@@ -17,5 +19,11 @@
     "fs": "^0.0.1-security",
     "three": "^0.165.0",
     "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "dotenv-webpack": "^8.1.0",
+    "webpack": "^5.102.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
   }
 }
