@@ -1,5 +1,5 @@
-import * as THREE from "../../three/build/three.module.js";
-import { OBJLoader } from "../../three/examples/jsm/loaders/OBJLoader.js";
+import * as THREE from "three";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
 const RUN_CLIP_ALIASES  = ['run', 'running', 'jog', 'jogging', 'sprint', 'walk', 'walking', 'move'];
 const IDLE_CLIP_ALIASES = ['idle', 'stand', 'standing', 'rest', 'waiting', 'bindpose', 'tpose', 't-pose'];

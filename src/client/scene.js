@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 import { Player, enemies, p } from "./player.js";
 import { playerCamera } from "./camera.js";
 import { maze } from "./maze.js";

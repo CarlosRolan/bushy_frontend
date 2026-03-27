@@ -1,5 +1,5 @@
-import { GLTFLoader } from "../../three/examples/jsm/loaders/GLTFLoader.js";
-import { FBXLoader } from "../../three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 
 // Load a GLTF/GLB file from a browser File object via blob URL
 function loadGLTFFromFile(file) {

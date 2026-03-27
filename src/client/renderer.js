@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 
 // Create the WebGLRenderer with anti-aliasing and set its size
 const renderer = new THREE.WebGLRenderer({ antialias: true });

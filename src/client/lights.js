@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 // LIGHTS
 const ambient = new THREE.HemisphereLight(0xffffbb, 0x080820, 1); // no shadows
 const dirlight = new THREE.DirectionalLight(0xffffff, 0.3, 50); // shadows
