@@ -90,7 +90,13 @@ function updatePlayer() {
 
   if (moving) {
 
-    p.rotate(playerRotation);
+    // Rotate model to face the actual movement direction, not just the camera angle.
+    // This fixes the sideways-sliding problem when pressing A or D.
+    const dx = newPos.x - currentPosition.x;
+    const dz = newPos.z - currentPosition.z;
+    if (dx !== 0 || dz !== 0) {
+      p.rotate(Math.atan2(dx, dz));
+    }
 
     p.move(newPos.x, newPos.y, newPos.z);
 
