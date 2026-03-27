@@ -95,7 +95,7 @@ function updatePlayer() {
     const dx = newPos.x - currentPosition.x;
     const dz = newPos.z - currentPosition.z;
     if (dx !== 0 || dz !== 0) {
-      p.rotate(Math.atan2(dx, dz) + Math.PI);
+      p.rotate(Math.atan2(dx, dz));
     }
 
     p.move(newPos.x, newPos.y, newPos.z);

@@ -248,6 +248,10 @@ class Player {
     const box2 = new THREE.Box3().setFromObject(model);
     model.position.y -= box2.min.y;
 
+    // Flip model 180° so its local forward (+Z) matches the player mesh forward.
+    // Soldier.glb (and many exported models) face -Z by default.
+    model.rotation.y = Math.PI;
+
     bodyGroup.add(model);
 
     // Set up AnimationMixer on the uploaded model
