@@ -1,18 +1,17 @@
 import * as THREE from "../../three/build/three.module.js";
 import { OBJLoader } from "../../three/examples/jsm/loaders/OBJLoader.js";
 
-// Names that commonly represent a running/walking clip in exported models
-const RUN_CLIP_ALIASES = ['run', 'running', 'walk', 'walking', 'jog', 'jogging', 'sprint', 'move'];
+const RUN_CLIP_ALIASES  = ['run', 'running', 'jog', 'jogging', 'sprint', 'walk', 'walking', 'move'];
+const IDLE_CLIP_ALIASES = ['idle', 'stand', 'standing', 'rest', 'waiting', 'bindpose', 'tpose', 't-pose'];
 
-function findRunClip(animations) {
+function findClip(animations, aliases) {
   if (!animations || animations.length === 0) return null;
   const lower = animations.map(a => ({ clip: a, key: a.name.toLowerCase() }));
-  for (const alias of RUN_CLIP_ALIASES) {
+  for (const alias of aliases) {
     const match = lower.find(({ key }) => key.includes(alias));
     if (match) return match.clip;
   }
-  // Fall back to first available clip
-  return animations[0];
+  return null;
 }
 //import { FontLoader, TextGeometry } from "../../three/examples/jsm/Addons.js";
 //import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
@@ -130,6 +129,7 @@ class Player {
     // Animation state
     this.mixer = null;
     this.runAction = null;
+    this.idleAction = null;
     this._isRunning = false;
 
     // Main group for visual components
@@ -257,29 +257,40 @@ class Player {
     // Set up AnimationMixer on the uploaded model
     this.mixer = new THREE.AnimationMixer(model);
 
-    const clip = findRunClip(modelResult.animations);
-    if (clip) {
-      this.runAction = this.mixer.clipAction(clip);
+    const runClip  = findClip(modelResult.animations, RUN_CLIP_ALIASES);
+    const idleClip = findClip(modelResult.animations, IDLE_CLIP_ALIASES);
+
+    if (runClip) {
+      this.runAction = this.mixer.clipAction(runClip);
       this.runAction.setLoop(THREE.LoopRepeat, Infinity);
       this.runAction.clampWhenFinished = false;
+    }
 
-      if (this._isRunning) {
-        this.runAction.play();
-      }
+    if (idleClip) {
+      this.idleAction = this.mixer.clipAction(idleClip);
+      this.idleAction.setLoop(THREE.LoopRepeat, Infinity);
+      this.idleAction.clampWhenFinished = false;
+    }
+
+    // Start in idle (or run if already moving)
+    if (this._isRunning && this.runAction) {
+      this.runAction.play();
+    } else if (this.idleAction) {
+      this.idleAction.play();
     }
   }
 
-  // Toggle the running animation on or off
+  // Toggle between idle and run animations
   setRunning(running) {
     if (running === this._isRunning) return;
     this._isRunning = running;
 
-    if (!this.runAction) return;
-
     if (running) {
-      this.runAction.reset().play();
+      if (this.idleAction) this.idleAction.fadeOut(0.2);
+      if (this.runAction)  this.runAction.reset().fadeIn(0.2).play();
     } else {
-      this.runAction.fadeOut(0.2);
+      if (this.runAction)  this.runAction.fadeOut(0.2);
+      if (this.idleAction) this.idleAction.reset().fadeIn(0.2).play();
     }
   }
 
