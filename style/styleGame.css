@@ -47,6 +47,51 @@ canvas {
   /* Ensure the message is on top of the overlay */
 }
 
+#model-upload-panel {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  z-index: 100;
+  font-family: sans-serif;
+  font-size: 13px;
+  color: #eee;
+}
+
+#model-upload-panel span:first-child {
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: #aaa;
+}
+
+#model-file-input {
+  cursor: pointer;
+  color: #ddd;
+  font-size: 12px;
+}
+
+#model-upload-status {
+  font-size: 11px;
+  min-height: 14px;
+  color: #aaa;
+}
+
+#model-upload-status.ok {
+  color: #6f6;
+}
+
+#model-upload-status.err {
+  color: #f66;
+}
+
 #blackOverlay {
   position: fixed;
   top: 0;

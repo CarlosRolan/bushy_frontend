@@ -1,5 +1,19 @@
 import * as THREE from "../../three/build/three.module.js";
 import { OBJLoader } from "../../three/examples/jsm/loaders/OBJLoader.js";
+
+// Names that commonly represent a running/walking clip in exported models
+const RUN_CLIP_ALIASES = ['run', 'running', 'walk', 'walking', 'jog', 'jogging', 'sprint', 'move'];
+
+function findRunClip(animations) {
+  if (!animations || animations.length === 0) return null;
+  const lower = animations.map(a => ({ clip: a, key: a.name.toLowerCase() }));
+  for (const alias of RUN_CLIP_ALIASES) {
+    const match = lower.find(({ key }) => key.includes(alias));
+    if (match) return match.clip;
+  }
+  // Fall back to first available clip
+  return animations[0];
+}
 //import { FontLoader, TextGeometry } from "../../three/examples/jsm/Addons.js";
 //import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
@@ -113,6 +127,11 @@ class Player {
     this.speed = 1;
     this.readyToStart = false;
 
+    // Animation state
+    this.mixer = null;
+    this.runAction = null;
+    this._isRunning = false;
+
     // Main group for visual components
     const group = new THREE.Group();
     group.name = "body_group";
@@ -203,6 +222,68 @@ class Player {
 
   getCurrentRotation() {
     this.mesh.p
+  }
+
+  // Replace the body mesh with an uploaded model and set up its run animation.
+  // modelResult: { scene: THREE.Object3D, animations: THREE.AnimationClip[] }
+  setModel(modelResult) {
+    const bodyGroup = this.mesh.getObjectByName('body_group');
+
+    // Remove existing body contents
+    while (bodyGroup.children.length > 0) {
+      bodyGroup.remove(bodyGroup.children[0]);
+    }
+
+    const model = modelResult.scene;
+
+    // Auto-scale: fit into roughly 1-unit tall bounding box
+    const box = new THREE.Box3().setFromObject(model);
+    const height = box.max.y - box.min.y;
+    if (height > 0) {
+      const scale = 1.0 / height;
+      model.scale.setScalar(scale);
+    }
+
+    // Re-center vertically so feet sit at y=0 of body_group
+    const box2 = new THREE.Box3().setFromObject(model);
+    model.position.y -= box2.min.y;
+
+    bodyGroup.add(model);
+
+    // Set up AnimationMixer on the uploaded model
+    this.mixer = new THREE.AnimationMixer(model);
+
+    const clip = findRunClip(modelResult.animations);
+    if (clip) {
+      this.runAction = this.mixer.clipAction(clip);
+      this.runAction.setLoop(THREE.LoopRepeat, Infinity);
+      this.runAction.clampWhenFinished = false;
+
+      if (this._isRunning) {
+        this.runAction.play();
+      }
+    }
+  }
+
+  // Toggle the running animation on or off
+  setRunning(running) {
+    if (running === this._isRunning) return;
+    this._isRunning = running;
+
+    if (!this.runAction) return;
+
+    if (running) {
+      this.runAction.reset().play();
+    } else {
+      this.runAction.fadeOut(0.2);
+    }
+  }
+
+  // Call every frame with the elapsed delta time to advance animations
+  updateAnimation(delta) {
+    if (this.mixer) {
+      this.mixer.update(delta);
+    }
   }
 }
 

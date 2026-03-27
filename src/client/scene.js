@@ -18,6 +18,7 @@ import { sendPosition, win } from "./client.js";
 import { listener, mazeCollisionSound, walkSound, winningSound } from "./audioLoader.js";
 import { ambient, dirlight } from "./lights.js";
 import { updateInfoPanel } from "./ui.js";
+import { initAnimationPipeline } from "./animationPipeline.js";
 
 const { boundries } = ground;
 const { minX, maxX, minZ, maxZ } = boundries;
@@ -41,6 +42,12 @@ p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellS
 
 scene.add(maze, p.mesh, ground, star, dirlight, ambient);
 
+// Initialize the model upload pipeline – replaces the player's body mesh
+// with any glTF/FBX file the user drops via the upload panel.
+initAnimationPipeline((modelResult) => {
+  p.setModel(modelResult);
+});
+
 // Main render method
 function animate() {
   requestAnimationFrame(animate);
@@ -63,6 +70,7 @@ function updateScene() {
   rotateStar();
 }
 function updatePlayer() {
+  const deltaTime = clock.getDelta();
   const currentPosition = p.mesh.position.clone();
 
   let newPos = calculateNewPos(p.mesh.position, p.speed);
@@ -70,14 +78,17 @@ function updatePlayer() {
   // Boundary check to ensure the player stays within the ground limits
   newPos = checkPlayerBoundary(newPos);
 
-  if (!currentPosition.equals(newPos)) {
+  const moving = !currentPosition.equals(newPos);
+
+  // Keep run animation in sync with actual movement
+  p.setRunning(moving);
+  p.updateAnimation(deltaTime);
+
+  if (moving) {
 
     p.rotate(playerRotation);
 
     p.move(newPos.x, newPos.y, newPos.z);
-
-    // Get the delta time
-    const deltaTime = clock.getDelta();
 
     handleMazeCollisions(deltaTime);
     handleSimplePlayerCollisions(p);
