@@ -253,14 +253,13 @@ class Player {
 
     bodyGroup.add(model);
 
-    // Narrow collider — only wraps the torso/body, not the full model width.
-    // Collision resolution uses a circle radius in XZ, so this box is only
-    // for debug visualisation; keep it thin to match the circle radius (0.25).
+    // Sphere collider matching the physics radius (0.25) and model height (1.5).
+    // Using a cylinder to represent the capsule shape: radius 0.25, height 1.5.
     const RADIUS = 0.25;
     const MODEL_H = 1.5;
     const collider = this.mesh.getObjectByName('collider');
     collider.geometry.dispose();
-    collider.geometry = new THREE.BoxGeometry(RADIUS * 2, MODEL_H, RADIUS * 2);
+    collider.geometry = new THREE.CylinderGeometry(RADIUS, RADIUS, MODEL_H, 12);
     collider.geometry.computeBoundingBox();
     collider.geometry.computeBoundingSphere();
     collider.position.set(0, MODEL_H / 2, 0);
