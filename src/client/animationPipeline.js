@@ -46,6 +46,19 @@ async function loadModelFromFile(file) {
   throw new Error(`Unsupported format ".${ext}". Use .glb, .gltf, or .fbx`);
 }
 
+// Load the default model from a static path (no file picker needed)
+function loadDefaultModel(path) {
+  return new Promise((resolve, reject) => {
+    const loader = new GLTFLoader();
+    loader.load(
+      path,
+      (gltf) => resolve({ type: 'gltf', scene: gltf.scene, animations: gltf.animations }),
+      undefined,
+      reject
+    );
+  });
+}
+
 // Build and attach the upload panel to the DOM.
 // onModelLoaded(result) is called with { type, scene, animations } on success.
 function initAnimationPipeline(onModelLoaded) {
@@ -91,4 +104,4 @@ function initAnimationPipeline(onModelLoaded) {
   });
 }
 
-export { initAnimationPipeline };
+export { initAnimationPipeline, loadDefaultModel };

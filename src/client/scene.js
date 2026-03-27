@@ -18,7 +18,7 @@ import { sendPosition, win } from "./client.js";
 import { listener, mazeCollisionSound, walkSound, winningSound } from "./audioLoader.js";
 import { ambient, dirlight } from "./lights.js";
 import { updateInfoPanel } from "./ui.js";
-import { initAnimationPipeline } from "./animationPipeline.js";
+import { initAnimationPipeline, loadDefaultModel } from "./animationPipeline.js";
 
 const { boundries } = ground;
 const { minX, maxX, minZ, maxZ } = boundries;
@@ -42,8 +42,12 @@ p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellS
 
 scene.add(maze, p.mesh, ground, star, dirlight, ambient);
 
-// Initialize the model upload pipeline – replaces the player's body mesh
-// with any glTF/FBX file the user drops via the upload panel.
+// Auto-load the default soldier model on startup
+loadDefaultModel('res/data/Soldier.glb').then((modelResult) => {
+  p.setModel(modelResult);
+});
+
+// Upload panel lets the user swap in their own model at any time
 initAnimationPipeline((modelResult) => {
   p.setModel(modelResult);
 });
