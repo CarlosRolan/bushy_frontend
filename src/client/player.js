@@ -236,11 +236,12 @@ class Player {
 
     const model = modelResult.scene;
 
-    // Scale model to match maze cell height (2 units = cellSize)
+    // Scale model to 1.5 units tall — shorter than the 2-unit maze cells
+    // so the collider never spans a full cell and causes constant overlap.
     const box = new THREE.Box3().setFromObject(model);
     const height = box.max.y - box.min.y;
     if (height > 0) {
-      model.scale.setScalar(2.0 / height);
+      model.scale.setScalar(1.5 / height);
     }
 
     // Place feet at y=0 of body_group (= world ground when player mesh y=0)
@@ -252,20 +253,17 @@ class Player {
 
     bodyGroup.add(model);
 
-    // Fit collider to the scaled model
-    this.mesh.updateMatrixWorld(true);
-    const worldBox = new THREE.Box3().setFromObject(model);
-    const w = worldBox.max.x - worldBox.min.x;
-    const h = worldBox.max.y - worldBox.min.y;
-    const d = worldBox.max.z - worldBox.min.z;
-
+    // Narrow collider — only wraps the torso/body, not the full model width.
+    // Collision resolution uses a circle radius in XZ, so this box is only
+    // for debug visualisation; keep it thin to match the circle radius (0.25).
+    const RADIUS = 0.25;
+    const MODEL_H = 1.5;
     const collider = this.mesh.getObjectByName('collider');
     collider.geometry.dispose();
-    collider.geometry = new THREE.BoxGeometry(w, h, d);
+    collider.geometry = new THREE.BoxGeometry(RADIUS * 2, MODEL_H, RADIUS * 2);
     collider.geometry.computeBoundingBox();
     collider.geometry.computeBoundingSphere();
-    // Center the collider over the model: feet at y=0, so center at h/2
-    collider.position.set(0, h / 2, 0);
+    collider.position.set(0, MODEL_H / 2, 0);
 
     // Set up AnimationMixer on the uploaded model
     this.mixer = new THREE.AnimationMixer(model);

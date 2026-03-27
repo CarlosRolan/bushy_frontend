@@ -100,7 +100,7 @@ function updatePlayer() {
 
     p.move(newPos.x, newPos.y, newPos.z);
 
-    handleMazeCollisions(deltaTime);
+    handleMazeCollisions();
     handleSimplePlayerCollisions(p);
     handlePlayerStarCollision(p);
 
@@ -210,65 +210,65 @@ function applyCorrectionSmoothly(position, correctionVector, deltaTime) {
   position.add(smoothedCorrection);
 }
 
-function handleMazeCollisions(deltaTime) {
+// Circle-vs-AABB collision in XZ.
+// Instead of box-vs-box (which mis-picks the push axis at corners),
+// we treat the player as a circle of radius PLAYER_RADIUS in XZ.
+// For each maze cell we find the closest point on the cell's AABB to the
+// player centre, then push the player straight out from that point.
+// This naturally slides around corners without teleporting.
+const PLAYER_RADIUS = 0.25;
+
+function handleMazeCollisions() {
   let bushCollisionDetected = false;
 
-  p.mesh.updateMatrixWorld(true);
-  p.getCollider().updateMatrixWorld(true);
-  const playerBoundingBox = new THREE.Box3().setFromObject(p.getCollider());
-  let correctionVector = new THREE.Vector3();
+  const cx = p.mesh.position.x;
+  const cz = p.mesh.position.z;
 
-  for (const mazeBoundingBox of maze.mazeBoundingBoxes) {
-    if (playerBoundingBox.intersectsBox(mazeBoundingBox)) {
+  for (const mazeBB of maze.mazeBoundingBoxes) {
 
-      switch (mazeBoundingBox.type) {
+    // Closest point on the AABB (XZ only) to the player centre
+    const closestX = Math.max(mazeBB.min.x, Math.min(cx, mazeBB.max.x));
+    const closestZ = Math.max(mazeBB.min.z, Math.min(cz, mazeBB.max.z));
+    const dx = cx - closestX;
+    const dz = cz - closestZ;
+    const dist2 = dx * dx + dz * dz;
 
-        case "bush":
-          bushCollisionDetected = true;
-          if (!mazeCollisionSound.isPlaying) {
-            if (isPlayerWalking()) {
-              mazeCollisionSound.play();
-            }
+    if (dist2 >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
 
-          }
-          p.speed = 0.02;
-          break;
+    switch (mazeBB.type) {
 
-        case "wall":
-          const overlap = {
-            x: Math.min(playerBoundingBox.max.x - mazeBoundingBox.min.x, mazeBoundingBox.max.x - playerBoundingBox.min.x),
-            y: Math.min(playerBoundingBox.max.y - mazeBoundingBox.min.y, mazeBoundingBox.max.y - playerBoundingBox.min.y),
-            z: Math.min(playerBoundingBox.max.z - mazeBoundingBox.min.z, mazeBoundingBox.max.z - playerBoundingBox.min.z),
-          };
+      case 'bush':
+        bushCollisionDetected = true;
+        if (!mazeCollisionSound.isPlaying && isPlayerWalking()) {
+          mazeCollisionSound.play();
+        }
+        p.speed = 0.02;
+        break;
 
-          if (overlap.x < overlap.y && overlap.x < overlap.z) {
-            correctionVector.x += playerBoundingBox.min.x < mazeBoundingBox.min.x ? -overlap.x : overlap.x;
-          } else if (overlap.y < overlap.x && overlap.y < overlap.z) {
-            correctionVector.y += playerBoundingBox.min.y < mazeBoundingBox.min.y ? -overlap.y : overlap.y;
+      case 'wall':
+        if (dist2 === 0) {
+          // Centre is exactly on the box edge — push out along shortest XZ axis
+          const ox = Math.min(cx - mazeBB.min.x, mazeBB.max.x - cx);
+          const oz = Math.min(cz - mazeBB.min.z, mazeBB.max.z - cz);
+          if (ox < oz) {
+            p.mesh.position.x += cx < (mazeBB.min.x + mazeBB.max.x) / 2 ? -(ox + PLAYER_RADIUS) : (ox + PLAYER_RADIUS);
           } else {
-            correctionVector.z += playerBoundingBox.min.z < mazeBoundingBox.min.z ? -overlap.z : overlap.z;
+            p.mesh.position.z += cz < (mazeBB.min.z + mazeBB.max.z) / 2 ? -(oz + PLAYER_RADIUS) : (oz + PLAYER_RADIUS);
           }
-          break;
-
-        default:
-          break;
-      }
+        } else {
+          // Normal case: push player out along the closest-point direction
+          const dist = Math.sqrt(dist2);
+          const overlap = PLAYER_RADIUS - dist;
+          p.mesh.position.x += (dx / dist) * overlap;
+          p.mesh.position.z += (dz / dist) * overlap;
+        }
+        break;
     }
-
   }
-
-  // Apply the correction vector to the player's position
-  //p.mesh.position.add(correctionVector.clone().multiplyScalar(deltaTime));
-  //applyCorrectionSmoothly(p.mesh.position, correctionVector, deltaTime);
-  //COLISION CALCULATOR
-  applyWallCorrection(p.mesh.position, correctionVector);
-  //p.mesh.position.add(correctionVector);
 
   if (!bushCollisionDetected) {
     p.speed = 0.1;
-    if (mazeCollisionSound.isPlaying) {
-      mazeCollisionSound.stop();
-    }
+    if (mazeCollisionSound.isPlaying) mazeCollisionSound.stop();
   }
 }
 
