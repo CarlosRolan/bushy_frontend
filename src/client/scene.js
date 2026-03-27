@@ -36,7 +36,7 @@ const [starX, starY] = findValidPosition(mazeData);
 // Position the start at the middle
 star.position.set(starX * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 1, starY * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
 // Position the player at the entrance
-p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 1, 0 * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
+p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 0, 0 * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
 
 //playerCamera.add(listener);
 

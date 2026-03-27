@@ -236,23 +236,36 @@ class Player {
 
     const model = modelResult.scene;
 
-    // Auto-scale: fit into roughly 1-unit tall bounding box
+    // Scale model to match maze cell height (2 units = cellSize)
     const box = new THREE.Box3().setFromObject(model);
     const height = box.max.y - box.min.y;
     if (height > 0) {
-      const scale = 1.0 / height;
-      model.scale.setScalar(scale);
+      model.scale.setScalar(2.0 / height);
     }
 
-    // Re-center vertically so feet sit at y=0 of body_group
+    // Place feet at y=0 of body_group (= world ground when player mesh y=0)
     const box2 = new THREE.Box3().setFromObject(model);
     model.position.y -= box2.min.y;
 
     // Flip model 180° so its local forward (+Z) matches the player mesh forward.
-    // Soldier.glb (and many exported models) face -Z by default.
     model.rotation.y = Math.PI;
 
     bodyGroup.add(model);
+
+    // Fit collider to the scaled model
+    this.mesh.updateMatrixWorld(true);
+    const worldBox = new THREE.Box3().setFromObject(model);
+    const w = worldBox.max.x - worldBox.min.x;
+    const h = worldBox.max.y - worldBox.min.y;
+    const d = worldBox.max.z - worldBox.min.z;
+
+    const collider = this.mesh.getObjectByName('collider');
+    collider.geometry.dispose();
+    collider.geometry = new THREE.BoxGeometry(w, h, d);
+    collider.geometry.computeBoundingBox();
+    collider.geometry.computeBoundingSphere();
+    // Center the collider over the model: feet at y=0, so center at h/2
+    collider.position.set(0, h / 2, 0);
 
     // Set up AnimationMixer on the uploaded model
     this.mixer = new THREE.AnimationMixer(model);
