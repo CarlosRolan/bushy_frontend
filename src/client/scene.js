@@ -150,17 +150,31 @@ function updatePlayer() {
   const movingXZ = Math.abs(newPos.x - currentPosition.x) > 0.0001 ||
                    Math.abs(newPos.z - currentPosition.z) > 0.0001;
 
-  // Jump & gravity (always applied)
-  if (isGrounded && wasSpaceJustPressed()) {
+  // Capture grounded state before this frame's physics resets it
+  const wasGrounded = isGrounded;
+
+  // Jump
+  if (wasGrounded && wasSpaceJustPressed()) {
     verticalVelocity = JUMP_FORCE;
-    isGrounded = false;
   }
+
+  // Gravity always acts — edge-fall is handled implicitly:
+  // if there's no surface under the player after XZ movement the
+  // block-top check simply won't match and isGrounded stays false.
   verticalVelocity -= GRAVITY;
   newPos.y += verticalVelocity;
+  isGrounded = false; // will be re-set by collision resolution below
+
+  // Land on world ground (y = 0)
   if (newPos.y <= 0) {
     newPos.y = 0;
     verticalVelocity = 0;
     isGrounded = true;
+  }
+
+  // Land on top of maze blocks
+  if (!isGrounded) {
+    handleBlockTopLanding(currentPosition.y, newPos);
   }
 
   // Animation state based on XZ movement + shift
@@ -273,6 +287,44 @@ function applyCorrectionSmoothly(position, correctionVector, deltaTime) {
   const smoothingFactor = 100; // Adjust this value to control the smoothing effect
   const smoothedCorrection = new THREE.Vector3().copy(correctionVector).multiplyScalar(smoothingFactor * deltaTime);
   position.add(smoothedCorrection);
+}
+
+// Y collision: detect when the player passes through the top face of a block.
+// prevY = player's Y at the START of this frame (before gravity was applied).
+// newPos = where the player will be after this frame's physics.
+//
+// The check  prevY >= bb.max.y && newPos.y <= bb.max.y  means:
+//   "the player was at or above the block top, and is now at or below it"
+// which covers both:
+//   - falling onto a block from above
+//   - standing on a block (gravity pulls newPos.y slightly below bb.max.y
+//     every frame; this check snaps it back and keeps isGrounded = true)
+//
+// Edge-fall is implicit: once the player moves their XZ position off the
+// block, the XZ circle check fails → the block-top check is skipped →
+// isGrounded stays false → the player starts falling.
+function handleBlockTopLanding(prevY, newPos) {
+  const cx = newPos.x;
+  const cz = newPos.z;
+
+  for (const bb of maze.mazeBoundingBoxes) {
+    if (bb.type !== 'wall') continue;
+
+    // Is the player's circle over this block in XZ?
+    const closestX = Math.max(bb.min.x, Math.min(cx, bb.max.x));
+    const closestZ = Math.max(bb.min.z, Math.min(cz, bb.max.z));
+    const dx = cx - closestX;
+    const dz = cz - closestZ;
+    if (dx * dx + dz * dz >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
+
+    // Did the player pass through (or sit on) this block's top face?
+    if (prevY >= bb.max.y && newPos.y <= bb.max.y) {
+      newPos.y       = bb.max.y;
+      verticalVelocity = 0;
+      isGrounded     = true;
+      return; // one block at a time is enough
+    }
+  }
 }
 
 // Circle-vs-AABB collision in XZ.
