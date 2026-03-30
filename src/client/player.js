@@ -161,10 +161,12 @@ class Player {
     this.mesh.add(textMesh);
     */
 
+    debug.visible = false; // hidden by default, toggle with G
+
     this.mesh.add(group);
     this.mesh.add(debug);
-    //const collider = getCollider(exampleMesh.geometry.boundingSphere.radius);
     const collider = createCollider(0.5);
+    collider.visible = false; // hidden by default, toggle with G
     this.mesh.add(collider);
 
     this.mesh.name = this.id; // Corrected to use this.id
@@ -222,6 +224,13 @@ class Player {
 
   getCurrentRotation() {
     this.mesh.p
+  }
+
+  setDebugVisible(visible) {
+    const debugGroup = this.mesh.getObjectByName('debug_group');
+    const collider   = this.mesh.getObjectByName('collider');
+    if (debugGroup) debugGroup.visible = visible;
+    if (collider)   collider.visible   = visible;
   }
 
   // Replace the body mesh with an uploaded model and set up its run animation.

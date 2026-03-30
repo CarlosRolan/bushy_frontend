@@ -92,6 +92,23 @@ canvas {
   color: #f66;
 }
 
+#debugPanel {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid #0f0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  z-index: 100;
+  font-family: monospace;
+  font-size: 13px;
+  color: #0f0;
+  line-height: 1.6;
+}
+
+#debugPanel p { margin: 0; }
+
 #blackOverlay {
   position: fixed;
   top: 0;

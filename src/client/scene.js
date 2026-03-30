@@ -14,7 +14,7 @@ import {
   isPlayerWalking
 } from "./controls.js";
 import { renderer } from "./renderer.js";
-import { sendPosition, win } from "./client.js";
+import { sendPosition, win, getConnectionStatus } from "./client.js";
 import { listener, mazeCollisionSound, walkSound, winningSound } from "./audioLoader.js";
 import { ambient, dirlight } from "./lights.js";
 import { updateInfoPanel } from "./ui.js";
@@ -32,6 +32,32 @@ const clock = new THREE.Clock();
 
 let spectacting = false;
 
+// ===================== DEBUG MODE =====================
+let debugMode = false;
+const debugBoxHelpers = [];
+
+function initDebugHelpers() {
+  maze.mazeBoundingBoxes.forEach(bb => {
+    const color  = bb.type === 'wall' ? 0xff4444 : 0x44ff44;
+    const helper = new THREE.Box3Helper(bb, color);
+    helper.visible = false;
+    scene.add(helper);
+    debugBoxHelpers.push(helper);
+  });
+}
+
+function toggleDebug() {
+  debugMode = !debugMode;
+  debugBoxHelpers.forEach(h => h.visible = debugMode);
+  p.setDebugVisible(debugMode);
+  document.getElementById('debugPanel').style.display = debugMode ? 'block' : 'none';
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'g') toggleDebug();
+});
+// ======================================================
+
 const [starX, starY] = findValidPosition(mazeData);
 // Position the start at the middle
 star.position.set(starX * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 1, starY * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
@@ -41,6 +67,7 @@ p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellS
 //playerCamera.add(listener);
 
 scene.add(maze, p.mesh, ground, star, dirlight, ambient);
+initDebugHelpers();
 
 // Auto-load the default soldier model on startup
 loadDefaultModel('res/data/Soldier.glb').then((modelResult) => {
@@ -52,16 +79,37 @@ initAnimationPipeline((modelResult) => {
   p.setModel(modelResult);
 });
 
+// FPS tracking
+let _fps = 0, _fpsCount = 0, _fpsLast = performance.now();
+function trackFPS() {
+  _fpsCount++;
+  const now = performance.now();
+  if (now - _fpsLast >= 1000) {
+    _fps = _fpsCount;
+    _fpsCount = 0;
+    _fpsLast = now;
+  }
+}
+
 // Main render method
 function animate() {
   requestAnimationFrame(animate);
+  trackFPS();
   updateScene();
   onKey("X", spectate);
-
   updatePlayer();
-
+  if (debugMode) updateDebugPanel();
   renderer.render(scene, playerCamera);
 }
+
+function updateDebugPanel() {
+  const pos = p.getCurrentPos();
+  document.getElementById('dbgConnection').textContent = `Connection: ${getConnectionStatus()}`;
+  document.getElementById('dbgPlayers').textContent    = `Players: ${enemies.size + 1}`;
+  document.getElementById('dbgFPS').textContent        = `FPS: ${_fps}`;
+  document.getElementById('dbgPos').textContent        = `Pos: ${r(pos.x)} / ${r(pos.y)} / ${r(pos.z)}`;
+}
+function r(n) { return Math.round(n * 10) / 10; }
 
 function spectate() {
   spectacting = true;
@@ -225,6 +273,11 @@ function handleMazeCollisions() {
   const cz = p.mesh.position.z;
 
   for (const mazeBB of maze.mazeBoundingBoxes) {
+
+    // Skip if the player is fully above or below this block
+    const playerBottom = p.mesh.position.y;
+    const playerTop    = playerBottom + 1.5;
+    if (playerBottom >= mazeBB.max.y || playerTop <= mazeBB.min.y) continue;
 
     // Closest point on the AABB (XZ only) to the player centre
     const closestX = Math.max(mazeBB.min.x, Math.min(cx, mazeBB.max.x));
