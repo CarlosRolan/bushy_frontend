@@ -11,7 +11,9 @@ import {
   playerRotation,
   cameraRotation,
   onKey,
-  isPlayerWalking
+  isPlayerWalking,
+  isShiftPressed,
+  wasSpaceJustPressed,
 } from "./controls.js";
 import { renderer } from "./renderer.js";
 import { sendPosition, win, getConnectionStatus } from "./client.js";
@@ -34,6 +36,18 @@ let spectacting = false;
 
 // Max simultaneous players — must match the backend server limit
 const MAX_PLAYERS = 4;
+
+// Movement speeds
+const WALK_SPEED      = 0.08;
+const RUN_SPEED       = 0.16;
+const BUSH_WALK_SPEED = 0.02;
+const BUSH_RUN_SPEED  = 0.04;
+
+// Jump physics
+const JUMP_FORCE = 0.15;  // initial upward velocity
+const GRAVITY    = 0.008; // subtracted from vertical velocity each frame
+let verticalVelocity = 0;
+let isGrounded = true;
 let debugMode = false;
 const debugBoxHelpers = [];
 
@@ -126,49 +140,51 @@ function updatePlayer() {
   const deltaTime = clock.getDelta();
   const currentPosition = p.mesh.position.clone();
 
+  // Base speed depends on shift key
+  const shift = isShiftPressed();
+  p.speed = shift ? RUN_SPEED : WALK_SPEED;
+
+  // XZ movement
   let newPos = calculateNewPos(p.mesh.position, p.speed);
-
-  // Boundary check to ensure the player stays within the ground limits
   newPos = checkPlayerBoundary(newPos);
+  const movingXZ = Math.abs(newPos.x - currentPosition.x) > 0.0001 ||
+                   Math.abs(newPos.z - currentPosition.z) > 0.0001;
 
-  const moving = !currentPosition.equals(newPos);
+  // Jump & gravity (always applied)
+  if (isGrounded && wasSpaceJustPressed()) {
+    verticalVelocity = JUMP_FORCE;
+    isGrounded = false;
+  }
+  verticalVelocity -= GRAVITY;
+  newPos.y += verticalVelocity;
+  if (newPos.y <= 0) {
+    newPos.y = 0;
+    verticalVelocity = 0;
+    isGrounded = true;
+  }
 
-  // Keep run animation in sync with actual movement
-  p.setRunning(moving);
+  // Animation state based on XZ movement + shift
+  const movState = !movingXZ ? 'idle' : (shift ? 'run' : 'walk');
+  p.setMovementState(movState);
   p.updateAnimation(deltaTime);
 
-  if (moving) {
+  // Always apply position (gravity needs to update Y even when standing still)
+  p.move(newPos.x, newPos.y, newPos.z);
 
-    // Rotate model to face the actual movement direction, not just the camera angle.
-    // This fixes the sideways-sliding problem when pressing A or D.
+  if (movingXZ) {
     const dx = newPos.x - currentPosition.x;
     const dz = newPos.z - currentPosition.z;
-    if (dx !== 0 || dz !== 0) {
-      p.rotate(Math.atan2(dx, dz));
-    }
-
-    p.move(newPos.x, newPos.y, newPos.z);
+    if (dx !== 0 || dz !== 0) p.rotate(Math.atan2(dx, dz));
 
     handleMazeCollisions();
     handleSimplePlayerCollisions(p);
     handlePlayerStarCollision(p);
 
-    // Play walking sound
-    if (!walkSound.isPlaying) {
-      walkSound.play();
-    }
-
-    //UI
+    if (!walkSound.isPlaying) walkSound.play();
     updateInfoPanel(newPos, playerRotation);
-
     sendPosition({ id: p.id, position: p.mesh.position, rotation: p.mesh.rotation.y });
   } else {
-
-    // Play walking sound
-    if (walkSound.isPlaying) {
-      walkSound.stop();
-    }
-
+    if (walkSound.isPlaying) walkSound.stop();
   }
 
   updatePlayerCamera();
@@ -296,7 +312,7 @@ function handleMazeCollisions() {
         if (!mazeCollisionSound.isPlaying && isPlayerWalking()) {
           mazeCollisionSound.play();
         }
-        p.speed = 0.02;
+        p.speed = isShiftPressed() ? BUSH_RUN_SPEED : BUSH_WALK_SPEED;
         break;
 
       case 'wall':
@@ -321,7 +337,7 @@ function handleMazeCollisions() {
   }
 
   if (!bushCollisionDetected) {
-    p.speed = 0.1;
+    p.speed = isShiftPressed() ? RUN_SPEED : WALK_SPEED;
     if (mazeCollisionSound.isPlaying) mazeCollisionSound.stop();
   }
 }

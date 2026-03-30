@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
-const RUN_CLIP_ALIASES  = ['run', 'running', 'jog', 'jogging', 'sprint', 'walk', 'walking', 'move'];
-const IDLE_CLIP_ALIASES = ['idle', 'stand', 'standing', 'rest', 'waiting', 'bindpose', 'tpose', 't-pose'];
+const RUN_CLIP_ALIASES  = ['run', 'running', 'jog', 'sprint'];
+const WALK_CLIP_ALIASES = ['walk', 'walking'];
+const IDLE_CLIP_ALIASES = ['idle', 'stand', 'standing', 'rest'];
 
 function findClip(animations, aliases) {
   if (!animations || animations.length === 0) return null;
@@ -127,10 +128,11 @@ class Player {
     this.readyToStart = false;
 
     // Animation state
-    this.mixer = null;
-    this.runAction = null;
-    this.idleAction = null;
-    this._isRunning = false;
+    this.mixer          = null;
+    this.idleAction     = null;
+    this.walkAction     = null;
+    this.runAction      = null;
+    this._movementState = 'idle'; // 'idle' | 'walk' | 'run'
 
     // Main group for visual components
     const group = new THREE.Group();
@@ -276,41 +278,38 @@ class Player {
     // Set up AnimationMixer on the uploaded model
     this.mixer = new THREE.AnimationMixer(model);
 
-    const runClip  = findClip(modelResult.animations, RUN_CLIP_ALIASES);
-    const idleClip = findClip(modelResult.animations, IDLE_CLIP_ALIASES);
+    const clips = modelResult.animations;
+    const setup = (clip) => {
+      if (!clip) return null;
+      const action = this.mixer.clipAction(clip);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.clampWhenFinished = false;
+      return action;
+    };
 
-    if (runClip) {
-      this.runAction = this.mixer.clipAction(runClip);
-      this.runAction.setLoop(THREE.LoopRepeat, Infinity);
-      this.runAction.clampWhenFinished = false;
-    }
+    this.idleAction = setup(findClip(clips, IDLE_CLIP_ALIASES));
+    // Walk falls back to run if the model has no dedicated walk clip
+    this.walkAction = setup(findClip(clips, WALK_CLIP_ALIASES)) ??
+                      setup(findClip(clips, RUN_CLIP_ALIASES));
+    this.runAction  = setup(findClip(clips, RUN_CLIP_ALIASES)) ??
+                      this.walkAction;
 
-    if (idleClip) {
-      this.idleAction = this.mixer.clipAction(idleClip);
-      this.idleAction.setLoop(THREE.LoopRepeat, Infinity);
-      this.idleAction.clampWhenFinished = false;
-    }
-
-    // Start in idle (or run if already moving)
-    if (this._isRunning && this.runAction) {
-      this.runAction.play();
-    } else if (this.idleAction) {
-      this.idleAction.play();
-    }
+    // Start in idle
+    this._movementState = 'idle';
+    if (this.idleAction) this.idleAction.play();
   }
 
-  // Toggle between idle and run animations
-  setRunning(running) {
-    if (running === this._isRunning) return;
-    this._isRunning = running;
+  // Transition between 'idle', 'walk' and 'run'
+  setMovementState(state) {
+    if (state === this._movementState) return;
 
-    if (running) {
-      if (this.idleAction) this.idleAction.fadeOut(0.2);
-      if (this.runAction)  this.runAction.reset().fadeIn(0.2).play();
-    } else {
-      if (this.runAction)  this.runAction.fadeOut(0.2);
-      if (this.idleAction) this.idleAction.reset().fadeIn(0.2).play();
-    }
+    const actions = { idle: this.idleAction, walk: this.walkAction, run: this.runAction };
+    const prev = actions[this._movementState];
+    const next = actions[state];
+
+    this._movementState = state;
+    if (prev && prev !== next) prev.fadeOut(0.15);
+    if (next) next.reset().fadeIn(0.15).play();
   }
 
   // Call every frame with the elapsed delta time to advance animations
