@@ -32,7 +32,8 @@ const clock = new THREE.Clock();
 
 let spectacting = false;
 
-// ===================== DEBUG MODE =====================
+// Max simultaneous players — must match the backend server limit
+const MAX_PLAYERS = 4;
 let debugMode = false;
 const debugBoxHelpers = [];
 
@@ -105,7 +106,7 @@ function animate() {
 function updateDebugPanel() {
   const pos = p.getCurrentPos();
   document.getElementById('dbgConnection').textContent = `Connection: ${getConnectionStatus()}`;
-  document.getElementById('dbgPlayers').textContent    = `Players: ${enemies.size + 1}`;
+  document.getElementById('dbgPlayers').textContent    = `Players: ${enemies.size + 1}/${MAX_PLAYERS}`;
   document.getElementById('dbgFPS').textContent        = `FPS: ${_fps}`;
   document.getElementById('dbgPos').textContent        = `Pos: ${r(pos.x)} / ${r(pos.y)} / ${r(pos.z)}`;
 }
