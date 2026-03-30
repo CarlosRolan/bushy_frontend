@@ -32,41 +32,19 @@ const starGeometry = new THREE.ExtrudeGeometry(starShape, {
 });
 starGeometry.center(); // center around origin so rotation looks correct
 
-// MeshBasicMaterial: ignores lights, consistent with the rest of the game.
-// Simulate the "glow" by animating the color intensity directly.
 const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 });
 
 const star = new THREE.Mesh(starGeometry, starMaterial);
 star.scale.setScalar(0.4);
 
 // --- Animation ---
-let bouncingUp = true;
 let time = 0;
 
-// Simulate a pulse by oscillating between gold and orange
-const COLOR_A = new THREE.Color(0xffd700); // gold
-const COLOR_B = new THREE.Color(0xff6600); // orange
-
 function rotateStar() {
-  time += 0.03;
+  time += 0.02;
 
-  // Spin + wobble
   star.rotation.y += 0.02;
-  star.rotation.z  = Math.sin(time * 0.5) * 0.15;
-
-  // Bounce
-  const bounceAmount = 0.02;
-  if (bouncingUp) {
-    star.position.y += bounceAmount;
-    if (star.position.y >= 2) bouncingUp = false;
-  } else {
-    star.position.y -= bounceAmount;
-    if (star.position.y <= 1) bouncingUp = true;
-  }
-
-  // Pulse color between gold and orange
-  const t = (Math.sin(time * 2) + 1) / 2; // 0..1
-  starMaterial.color.lerpColors(COLOR_A, COLOR_B, t);
+  star.position.y  = 1.5 + Math.sin(time) * 0.5; // smooth vertical oscillation
 }
 
 export { star, rotateStar };
