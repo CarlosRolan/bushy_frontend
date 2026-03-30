@@ -1,47 +1,77 @@
 import * as THREE from "three";
-// Create a star shape
+
+// --- Shape ---
+// Proper 5-pointed star: alternate outer (r=1) and inner (r=0.4) vertices.
+// Start at the top point (angle = -π/2) and go clockwise.
+const OUTER_R = 1;
+const INNER_R = 0.4;
+const POINTS  = 5;
+
 const starShape = new THREE.Shape();
+for (let i = 0; i < POINTS; i++) {
+  const outerAngle = (i * 2 * Math.PI / POINTS) - Math.PI / 2;
+  const innerAngle = outerAngle + Math.PI / POINTS;
 
-starShape.moveTo(0, 10);
-for (let i = 0; i < 5; i++) {
- starShape.lineTo(Math.cos((Math.PI / 5) * 2 * i) * 5, Math.sin((Math.PI / 5) * 2 * i) * 5);
- starShape.lineTo(Math.cos((Math.PI / 5) * (2 * i + 1)) * 3, Math.sin((Math.PI / 5) * (2 * i + 1)) * 3);
+  const ox = Math.cos(outerAngle) * OUTER_R;
+  const oy = Math.sin(outerAngle) * OUTER_R;
+  const ix = Math.cos(innerAngle) * INNER_R;
+  const iy = Math.sin(innerAngle) * INNER_R;
+
+  i === 0 ? starShape.moveTo(ox, oy) : starShape.lineTo(ox, oy);
+  starShape.lineTo(ix, iy);
 }
-starShape.lineTo(0, 10);
+starShape.closePath();
 
-// Extrude the star shape to create geometry
-const extrudeSettings = {
- steps: 1,
- depth: 1,
- bevelEnabled: false,
-};
-const starGeometry = new THREE.ExtrudeGeometry(starShape, extrudeSettings);
+// --- Geometry ---
+const starGeometry = new THREE.ExtrudeGeometry(starShape, {
+  depth: 0.3,
+  bevelEnabled: true,
+  bevelThickness: 0.05,
+  bevelSize: 0.05,
+  bevelSegments: 3,
+});
+starGeometry.center(); // center around origin so rotation looks correct
 
-// Create star mesh
-const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+// --- Material: gold with emissive so it glows even without direct light ---
+const starMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffd700,
+  emissive: 0xffa500,
+  emissiveIntensity: 0.6,
+  metalness: 0.8,
+  roughness: 0.2,
+});
+
 const star = new THREE.Mesh(starGeometry, starMaterial);
-//star.position.set(randomX, 1, randomZ); // Adjust the position to be above the ground
-//star.position.set(-90, 1, -90); // Adjust the position to be above the ground
-star.scale.set(0.5, 0.5, 0.5); // Adjust the scale to make the star smaller
+star.scale.setScalar(0.4);
 
-// Make the star rotate and bounce
+// --- Point light attached to the star so it illuminates the surroundings ---
+const starLight = new THREE.PointLight(0xffd700, 2, 6);
+star.add(starLight);
+
+// --- Animation ---
 let bouncingUp = true;
-function rotateStar() {
- star.rotation.y += 0.01; // Adjust rotation speed as needed
+let time = 0;
 
- // Bounce the star
- const bounceAmount = 0.02; // Adjust the amount of bounce
- if (bouncingUp) {
-  star.position.y += bounceAmount;
-  if (star.position.y >= 3) {
-   bouncingUp = false;
+function rotateStar() {
+  time += 0.03;
+
+  // Spin
+  star.rotation.y += 0.02;
+  star.rotation.z  = Math.sin(time * 0.5) * 0.15; // slight wobble
+
+  // Bounce
+  const bounceAmount = 0.02;
+  if (bouncingUp) {
+    star.position.y += bounceAmount;
+    if (star.position.y >= 2) bouncingUp = false;
+  } else {
+    star.position.y -= bounceAmount;
+    if (star.position.y <= 1) bouncingUp = true;
   }
- } else {
-  star.position.y -= bounceAmount;
-  if (star.position.y <= 1.5) { // Adjust the height to keep the star above the ground
-   bouncingUp = true;
-  }
- }
+
+  // Pulse the glow
+  starLight.intensity = 1.5 + Math.sin(time * 2) * 0.8;
+  starMaterial.emissiveIntensity = 0.5 + Math.sin(time * 2) * 0.3;
 }
 
-export { star, rotateStar }
+export { star, rotateStar };
