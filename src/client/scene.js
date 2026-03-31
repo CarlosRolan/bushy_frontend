@@ -14,6 +14,7 @@ import {
   isPlayerWalking,
   isShiftPressed,
   wasSpaceJustPressed,
+  wasEJustPressed,
 } from "./controls.js";
 import { renderer } from "./renderer.js";
 import { sendPosition, win, getConnectionStatus } from "./client.js";
@@ -21,6 +22,12 @@ import { listener, mazeCollisionSound, walkSound, winningSound } from "./audioLo
 import { ambient, dirlight } from "./lights.js";
 import { updateInfoPanel } from "./ui.js";
 import { initAnimationPipeline, loadDefaultModel } from "./animationPipeline.js";
+import {
+  spawnPickups, PlacedSpring, PlacedLadder,
+  PICKUP_RADIUS, SPRING_RADIUS, LADDER_RADIUS, BLOCK_TOP_Y,
+  ITEM_META,
+} from "./items.js";
+import { updateItemBox } from "./ui.js";
 
 const { boundries } = ground;
 const { minX, maxX, minZ, maxZ } = boundries;
@@ -48,6 +55,13 @@ const JUMP_FORCE = 0.15;  // initial upward velocity
 const GRAVITY    = 0.008; // subtracted from vertical velocity each frame
 let verticalVelocity = 0;
 let isGrounded = true;
+
+// Item system
+let pickups      = [];   // ItemPickup[] scattered on the map
+let placedSprings = [];  // PlacedSpring[] deployed by the player
+let placedLadders = [];  // PlacedLadder[] deployed by the player
+let heldItem     = null; // 'spring' | 'ladder' | null
+let pickupTime   = 0;    // drives pickup animation
 let debugMode = false;
 const debugBoxHelpers = [];
 
@@ -83,6 +97,7 @@ p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellS
 
 scene.add(maze, p.mesh, ground, star, dirlight, ambient);
 initDebugHelpers();
+pickups = spawnPickups(scene, mazeData, cellSize);
 
 // Auto-load the default soldier model on startup
 loadDefaultModel('res/data/Soldier.glb').then((modelResult) => {
@@ -113,6 +128,7 @@ function animate() {
   updateScene();
   onKey("X", spectate);
   updatePlayer();
+  updateItems();
   if (debugMode) updateDebugPanel();
   renderer.render(scene, playerCamera);
 }
@@ -288,6 +304,90 @@ function applyCorrectionSmoothly(position, correctionVector, deltaTime) {
   const smoothedCorrection = new THREE.Vector3().copy(correctionVector).multiplyScalar(smoothingFactor * deltaTime);
   position.add(smoothedCorrection);
 }
+
+// ========================= ITEM SYSTEM ==============================
+
+function updateItems() {
+  pickupTime += 0.03;
+  const px = p.mesh.position.x;
+  const pz = p.mesh.position.z;
+
+  // Animate and collect pickups
+  for (const pickup of pickups) {
+    if (!pickup.active) continue;
+    pickup.animate(pickupTime);
+
+    const dx = px - pickup.mesh.position.x;
+    const dz = pz - pickup.mesh.position.z;
+    if (dx * dx + dz * dz < PICKUP_RADIUS * PICKUP_RADIUS && heldItem === null) {
+      pickup.collect();
+      heldItem = pickup.type;
+      updateItemBox(heldItem);
+    }
+  }
+
+  // Update placed springs (cooldown) and check trigger
+  for (const spring of placedSprings) {
+    if (!spring.active) continue;
+    spring.update();
+    if (spring.cooldown > 0) continue; // immunity period
+
+    const dx = px - spring.mesh.position.x;
+    const dz = pz - spring.mesh.position.z;
+    if (dx * dx + dz * dz < SPRING_RADIUS * SPRING_RADIUS && isGrounded) {
+      // Launch player upward
+      verticalVelocity = JUMP_FORCE * 3.5;
+      isGrounded = false;
+      spring.trigger();
+    }
+  }
+
+  // Check placed ladders — elevate player to block top when touched at ground level
+  for (const ladder of placedLadders) {
+    if (!ladder.active) continue;
+    const dx = px - ladder.mesh.position.x;
+    const dz = pz - ladder.mesh.position.z;
+    if (dx * dx + dz * dz < LADDER_RADIUS * LADDER_RADIUS && p.mesh.position.y < 0.5) {
+      p.mesh.position.y = BLOCK_TOP_Y;
+      verticalVelocity  = 0;
+      isGrounded        = true;
+    }
+  }
+
+  // Use item (press E)
+  if (wasEJustPressed() && heldItem !== null) {
+    useItem();
+  }
+}
+
+function useItem() {
+  const x = p.mesh.position.x;
+  const z = p.mesh.position.z;
+
+  if (heldItem === 'spring') {
+    const spring = new PlacedSpring(x, z);
+    scene.add(spring.mesh);
+    placedSprings.push(spring);
+
+  } else if (heldItem === 'ladder') {
+    // Orient the ladder toward the nearest wall in the player's facing direction
+    const facingX = Math.sin(p.mesh.rotation.y);
+    const facingZ = Math.cos(p.mesh.rotation.y);
+    const rotY    = Math.atan2(facingX, facingZ);
+    const ladder  = new PlacedLadder(
+      x + facingX * 0.6,
+      z + facingZ * 0.6,
+      rotY
+    );
+    scene.add(ladder.mesh);
+    placedLadders.push(ladder);
+  }
+
+  heldItem = null;
+  updateItemBox(null);
+}
+
+// ====================================================================
 
 // Y collision: detect when the player passes through the top face of a block.
 // prevY = player's Y at the START of this frame (before gravity was applied).

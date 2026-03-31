@@ -1,12 +1,7 @@
 const keys = {
-  W: false,
-  A: false,
-  S: false,
-  D: false,
-  F: false,
-  X: false,
-  Space: false,
-  Shift: false,
+  W: false, A: false, S: false, D: false,
+  F: false, X: false, E: false,
+  Space: false, Shift: false,
 };
 
 // Control de ratón para rotar la cámara alrededor del jugador
@@ -117,6 +112,14 @@ function wasSpaceJustPressed() {
   return just;
 }
 
+let prevE = false;
+function wasEJustPressed() {
+  const now  = keys.E;
+  const just = now && !prevE;
+  prevE      = now;
+  return just;
+}
+
 let prevMovePressed = false;
 function wasMoveKeyJustPressed() {
   const now = isMoveKeyPressed();
@@ -138,6 +141,7 @@ const mouseEvents = { onMouseDown, onMouseUp, onMouseMove, onMouseScroll };
 export {
   keyEvents, mouseEvents, calculateNewPos,
   playerRotation, cameraRotation, onKey,
-  isPlayerWalking, isShiftPressed, wasSpaceJustPressed,
+  isPlayerWalking, isShiftPressed,
+  wasSpaceJustPressed, wasEJustPressed,
   wasMoveKeyJustPressed, wasMoveKeyJustReleased,
 };

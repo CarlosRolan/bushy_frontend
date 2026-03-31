@@ -92,6 +92,46 @@ canvas {
   color: #f66;
 }
 
+/* Item box — Mario Kart style, top-center */
+#itemBox {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-radius: 14px;
+  padding: 6px 20px 8px;
+  text-align: center;
+  z-index: 100;
+  min-width: 90px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#itemIcon {
+  font-size: 36px;
+  line-height: 1.1;
+  filter: grayscale(0.6);
+  transition: filter 0.2s;
+}
+
+#itemLabel {
+  font-family: monospace;
+  font-size: 10px;
+  color: #aaa;
+  letter-spacing: 0.08em;
+  min-height: 14px;
+}
+
+#itemBox.has-item {
+  border-color: #ffd700;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
+}
+
+#itemBox.has-item #itemIcon {
+  filter: grayscale(0);
+}
+
 #debugPanel {
   position: fixed;
   top: 8px;
