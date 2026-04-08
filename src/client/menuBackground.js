@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 import { menuCamera, moveCameraAroundMenu } from "./camera.js";
 import { maze } from "./maze.js";
 import { ground } from "./ground.js";

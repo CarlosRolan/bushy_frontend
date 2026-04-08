@@ -17,6 +17,22 @@ function round(n) {
 
 }
 
-export {
- updateInfoPanel
+// Item box (top-center, Mario Kart style)
+function updateItemBox(itemType) {
+  const icon  = document.getElementById('itemIcon');
+  const label = document.getElementById('itemLabel');
+  const box   = document.getElementById('itemBox');
+
+  if (!itemType) {
+    icon.textContent  = '?';
+    label.textContent = '';
+    box.className     = '';
+  } else {
+    const meta = { spring: { icon: '🌀', label: 'SPRING' }, ladder: { icon: '🪜', label: 'LADDER' } };
+    icon.textContent  = meta[itemType].icon;
+    label.textContent = meta[itemType].label + ' · [E] to use';
+    box.className     = 'has-item';
+  }
 }
+
+export { updateInfoPanel, updateItemBox }

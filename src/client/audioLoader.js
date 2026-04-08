@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 
 // Load the audio
 const listener = new THREE.AudioListener();

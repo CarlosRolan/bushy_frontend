@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 import { staticMazeData } from "../staticMazeData.js";
 
 // Cell size of the maze

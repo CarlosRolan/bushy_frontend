@@ -1,11 +1,7 @@
 const keys = {
-  W: false,
-  A: false,
-  S: false,
-  D: false,
-  F: false,
-  X: false,
-  Space: false
+  W: false, A: false, S: false, D: false,
+  F: false, X: false, E: false,
+  Space: false, Shift: false,
 };
 
 // Control de ratón para rotar la cámara alrededor del jugador
@@ -14,6 +10,8 @@ let lastMouseX = null;
 let cameraRotation = 0;
 let playerRotation = 0;
 
+// calculateNewPos only handles XZ movement.
+// Y (jump/gravity) is managed by physics in scene.js.
 function calculateNewPos({ x, y, z }, speed) {
   if (keys.W) {
     x += speed * Math.sin(playerRotation);
@@ -30,12 +28,6 @@ function calculateNewPos({ x, y, z }, speed) {
   if (keys.D) {
     x -= speed * Math.cos(playerRotation);
     z += speed * Math.sin(playerRotation);
-  }
-  if (keys.Space) {
-    y += 0.1;
-  }
-  if (keys.F) {
-    y -= 0.1;
   }
 
   return { x, y, z };
@@ -69,11 +61,14 @@ function onMouseMove(event) {
   lastMouseX = event.clientX;
 }
 
-
 // KEYBOARD EVENTS
 function onKeyChange(event, isPressed) {
   if (event.code === 'Space') {
     keys["Space"] = isPressed;
+    return;
+  }
+  if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+    keys["Shift"] = isPressed;
     return;
   }
 
@@ -81,7 +76,6 @@ function onKeyChange(event, isPressed) {
   if (keys.hasOwnProperty(key)) {
     keys[key] = isPressed;
   }
-
 }
 
 function onKeyDown(event) {
@@ -94,19 +88,38 @@ function onKeyUp(event) {
 
 function onMouseScroll(camera) {
   console.log("onScroll");
-  camera.position.set(x, camera.position.y++, z); // Adjust the y-coordinate to set the camera above the map
+  camera.position.set(x, camera.position.y++, z);
 }
 
 function isMoveKeyPressed() {
   return keys.W || keys.A || keys.S || keys.D;
 }
 
-// walking = intenta moverse (teclas), no incluye saltar/bajar/subir
 function isPlayerWalking() {
   return isMoveKeyPressed();
 }
 
-// útil para detectar “key press” (flanco) sin repetir cada frame
+function isShiftPressed() {
+  return keys.Shift;
+}
+
+// Edge detection — true only on the frame Space is first pressed
+let prevSpace = false;
+function wasSpaceJustPressed() {
+  const now = keys.Space;
+  const just = now && !prevSpace;
+  prevSpace = now;
+  return just;
+}
+
+let prevE = false;
+function wasEJustPressed() {
+  const now  = keys.E;
+  const just = now && !prevE;
+  prevE      = now;
+  return just;
+}
+
 let prevMovePressed = false;
 function wasMoveKeyJustPressed() {
   const now = isMoveKeyPressed();
@@ -122,8 +135,13 @@ function wasMoveKeyJustReleased() {
   return justReleased;
 }
 
-
 const keyEvents = { onKeyDown, onKeyUp };
 const mouseEvents = { onMouseDown, onMouseUp, onMouseMove, onMouseScroll };
 
-export { keyEvents, mouseEvents, calculateNewPos, playerRotation, cameraRotation, onKey, isPlayerWalking, wasMoveKeyJustPressed, wasMoveKeyJustReleased };
+export {
+  keyEvents, mouseEvents, calculateNewPos,
+  playerRotation, cameraRotation, onKey,
+  isPlayerWalking, isShiftPressed,
+  wasSpaceJustPressed, wasEJustPressed,
+  wasMoveKeyJustPressed, wasMoveKeyJustReleased,
+};

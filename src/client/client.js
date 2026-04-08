@@ -174,4 +174,14 @@ function updateEnemyPosition(id, position, rotation) {
 }
 
 
-export { sendPosition, win, lost };
+function getConnectionStatus() {
+  switch (ws.readyState) {
+    case WebSocket.CONNECTING: return 'Connecting';
+    case WebSocket.OPEN:       return 'Connected';
+    case WebSocket.CLOSING:    return 'Closing';
+    case WebSocket.CLOSED:     return 'Disconnected';
+    default:                   return 'Unknown';
+  }
+}
+
+export { sendPosition, win, lost, getConnectionStatus };

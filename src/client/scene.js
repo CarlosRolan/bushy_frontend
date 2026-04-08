@@ -1,4 +1,4 @@
-import * as THREE from "../../three/build/three.module.js";
+import * as THREE from "three";
 import { Player, enemies, p } from "./player.js";
 import { playerCamera } from "./camera.js";
 import { maze } from "./maze.js";
@@ -11,13 +11,23 @@ import {
   playerRotation,
   cameraRotation,
   onKey,
-  isPlayerWalking
+  isPlayerWalking,
+  isShiftPressed,
+  wasSpaceJustPressed,
+  wasEJustPressed,
 } from "./controls.js";
 import { renderer } from "./renderer.js";
-import { sendPosition, win } from "./client.js";
+import { sendPosition, win, getConnectionStatus } from "./client.js";
 import { listener, mazeCollisionSound, walkSound, winningSound } from "./audioLoader.js";
 import { ambient, dirlight } from "./lights.js";
 import { updateInfoPanel } from "./ui.js";
+import { initAnimationPipeline, loadDefaultModel } from "./animationPipeline.js";
+import {
+  spawnPickups, PlacedSpring, PlacedLadder,
+  PICKUP_RADIUS, SPRING_RADIUS, LADDER_RADIUS, BLOCK_TOP_Y,
+  ITEM_META,
+} from "./items.js";
+import { updateItemBox } from "./ui.js";
 
 const { boundries } = ground;
 const { minX, maxX, minZ, maxZ } = boundries;
@@ -31,26 +41,106 @@ const clock = new THREE.Clock();
 
 let spectacting = false;
 
+// Max simultaneous players — must match the backend server limit
+const MAX_PLAYERS = 4;
+
+// Movement speeds
+const WALK_SPEED      = 0.08;
+const RUN_SPEED       = 0.16;
+const BUSH_WALK_SPEED = 0.02;
+const BUSH_RUN_SPEED  = 0.04;
+
+// Jump physics
+const JUMP_FORCE = 0.15;  // initial upward velocity
+const GRAVITY    = 0.008; // subtracted from vertical velocity each frame
+let verticalVelocity = 0;
+let isGrounded = true;
+
+// Item system
+let pickups      = [];   // ItemPickup[] scattered on the map
+let placedSprings = [];  // PlacedSpring[] deployed by the player
+let placedLadders = [];  // PlacedLadder[] deployed by the player
+let heldItem     = null; // 'spring' | 'ladder' | null
+let pickupTime   = 0;    // drives pickup animation
+let debugMode = false;
+const debugBoxHelpers = [];
+
+function initDebugHelpers() {
+  maze.mazeBoundingBoxes.forEach(bb => {
+    const color  = bb.type === 'wall' ? 0xff4444 : 0x44ff44;
+    const helper = new THREE.Box3Helper(bb, color);
+    helper.visible = false;
+    scene.add(helper);
+    debugBoxHelpers.push(helper);
+  });
+}
+
+function toggleDebug() {
+  debugMode = !debugMode;
+  debugBoxHelpers.forEach(h => h.visible = debugMode);
+  p.setDebugVisible(debugMode);
+  document.getElementById('debugPanel').style.display = debugMode ? 'block' : 'none';
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'g') toggleDebug();
+});
+// ======================================================
+
 const [starX, starY] = findValidPosition(mazeData);
 // Position the start at the middle
 star.position.set(starX * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 1, starY * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
 // Position the player at the entrance
-p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 1, 0 * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
+p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize, 0, 0 * cellSize - mazeData.length / 2 * cellSize + halfCellSize);
 
 //playerCamera.add(listener);
 
 scene.add(maze, p.mesh, ground, star, dirlight, ambient);
+initDebugHelpers();
+pickups = spawnPickups(scene, mazeData, cellSize);
+
+// Auto-load the default soldier model on startup
+loadDefaultModel('res/data/Soldier.glb').then((modelResult) => {
+  p.setModel(modelResult);
+});
+
+// Upload panel lets the user swap in their own model at any time
+initAnimationPipeline((modelResult) => {
+  p.setModel(modelResult);
+});
+
+// FPS tracking
+let _fps = 0, _fpsCount = 0, _fpsLast = performance.now();
+function trackFPS() {
+  _fpsCount++;
+  const now = performance.now();
+  if (now - _fpsLast >= 1000) {
+    _fps = _fpsCount;
+    _fpsCount = 0;
+    _fpsLast = now;
+  }
+}
 
 // Main render method
 function animate() {
   requestAnimationFrame(animate);
+  trackFPS();
   updateScene();
   onKey("X", spectate);
-
   updatePlayer();
-
+  updateItems();
+  if (debugMode) updateDebugPanel();
   renderer.render(scene, playerCamera);
 }
+
+function updateDebugPanel() {
+  const pos = p.getCurrentPos();
+  document.getElementById('dbgConnection').textContent = `Connection: ${getConnectionStatus()}`;
+  document.getElementById('dbgPlayers').textContent    = `Players: ${enemies.size + 1}/${MAX_PLAYERS}`;
+  document.getElementById('dbgFPS').textContent        = `FPS: ${_fps}`;
+  document.getElementById('dbgPos').textContent        = `Pos: ${r(pos.x)} / ${r(pos.y)} / ${r(pos.z)}`;
+}
+function r(n) { return Math.round(n * 10) / 10; }
 
 function spectate() {
   spectacting = true;
@@ -63,42 +153,68 @@ function updateScene() {
   rotateStar();
 }
 function updatePlayer() {
+  const deltaTime = clock.getDelta();
   const currentPosition = p.mesh.position.clone();
 
+  // Base speed depends on shift key
+  const shift = isShiftPressed();
+  p.speed = shift ? RUN_SPEED : WALK_SPEED;
+
+  // XZ movement
   let newPos = calculateNewPos(p.mesh.position, p.speed);
-
-  // Boundary check to ensure the player stays within the ground limits
   newPos = checkPlayerBoundary(newPos);
+  const movingXZ = Math.abs(newPos.x - currentPosition.x) > 0.0001 ||
+                   Math.abs(newPos.z - currentPosition.z) > 0.0001;
 
-  if (!currentPosition.equals(newPos)) {
+  // Capture grounded state before this frame's physics resets it
+  const wasGrounded = isGrounded;
 
-    p.rotate(playerRotation);
+  // Jump
+  if (wasGrounded && wasSpaceJustPressed()) {
+    verticalVelocity = JUMP_FORCE;
+  }
 
-    p.move(newPos.x, newPos.y, newPos.z);
+  // Gravity always acts — edge-fall is handled implicitly:
+  // if there's no surface under the player after XZ movement the
+  // block-top check simply won't match and isGrounded stays false.
+  verticalVelocity -= GRAVITY;
+  newPos.y += verticalVelocity;
+  isGrounded = false; // will be re-set by collision resolution below
 
-    // Get the delta time
-    const deltaTime = clock.getDelta();
+  // Land on world ground (y = 0)
+  if (newPos.y <= 0) {
+    newPos.y = 0;
+    verticalVelocity = 0;
+    isGrounded = true;
+  }
 
-    handleMazeCollisions(deltaTime);
+  // Land on top of maze blocks
+  if (!isGrounded) {
+    handleBlockTopLanding(currentPosition.y, newPos);
+  }
+
+  // Animation state based on XZ movement + shift
+  const movState = !movingXZ ? 'idle' : (shift ? 'run' : 'walk');
+  p.setMovementState(movState);
+  p.updateAnimation(deltaTime);
+
+  // Always apply position (gravity needs to update Y even when standing still)
+  p.move(newPos.x, newPos.y, newPos.z);
+
+  if (movingXZ) {
+    const dx = newPos.x - currentPosition.x;
+    const dz = newPos.z - currentPosition.z;
+    if (dx !== 0 || dz !== 0) p.rotate(Math.atan2(dx, dz));
+
+    handleMazeCollisions();
     handleSimplePlayerCollisions(p);
     handlePlayerStarCollision(p);
 
-    // Play walking sound
-    if (!walkSound.isPlaying) {
-      walkSound.play();
-    }
-
-    //UI
+    if (!walkSound.isPlaying) walkSound.play();
     updateInfoPanel(newPos, playerRotation);
-
     sendPosition({ id: p.id, position: p.mesh.position, rotation: p.mesh.rotation.y });
   } else {
-
-    // Play walking sound
-    if (walkSound.isPlaying) {
-      walkSound.stop();
-    }
-
+    if (walkSound.isPlaying) walkSound.stop();
   }
 
   updatePlayerCamera();
@@ -189,65 +305,192 @@ function applyCorrectionSmoothly(position, correctionVector, deltaTime) {
   position.add(smoothedCorrection);
 }
 
-function handleMazeCollisions(deltaTime) {
-  let bushCollisionDetected = false;
+// ========================= ITEM SYSTEM ==============================
 
-  p.mesh.updateMatrixWorld(true);
-  p.getCollider().updateMatrixWorld(true);
-  const playerBoundingBox = new THREE.Box3().setFromObject(p.getCollider());
-  let correctionVector = new THREE.Vector3();
+function updateItems() {
+  pickupTime += 0.03;
+  const px = p.mesh.position.x;
+  const pz = p.mesh.position.z;
 
-  for (const mazeBoundingBox of maze.mazeBoundingBoxes) {
-    if (playerBoundingBox.intersectsBox(mazeBoundingBox)) {
+  // Animate and collect pickups
+  for (const pickup of pickups) {
+    if (!pickup.active) continue;
+    pickup.animate(pickupTime);
 
-      switch (mazeBoundingBox.type) {
-
-        case "bush":
-          bushCollisionDetected = true;
-          if (!mazeCollisionSound.isPlaying) {
-            if (isPlayerWalking()) {
-              mazeCollisionSound.play();
-            }
-
-          }
-          p.speed = 0.02;
-          break;
-
-        case "wall":
-          const overlap = {
-            x: Math.min(playerBoundingBox.max.x - mazeBoundingBox.min.x, mazeBoundingBox.max.x - playerBoundingBox.min.x),
-            y: Math.min(playerBoundingBox.max.y - mazeBoundingBox.min.y, mazeBoundingBox.max.y - playerBoundingBox.min.y),
-            z: Math.min(playerBoundingBox.max.z - mazeBoundingBox.min.z, mazeBoundingBox.max.z - playerBoundingBox.min.z),
-          };
-
-          if (overlap.x < overlap.y && overlap.x < overlap.z) {
-            correctionVector.x += playerBoundingBox.min.x < mazeBoundingBox.min.x ? -overlap.x : overlap.x;
-          } else if (overlap.y < overlap.x && overlap.y < overlap.z) {
-            correctionVector.y += playerBoundingBox.min.y < mazeBoundingBox.min.y ? -overlap.y : overlap.y;
-          } else {
-            correctionVector.z += playerBoundingBox.min.z < mazeBoundingBox.min.z ? -overlap.z : overlap.z;
-          }
-          break;
-
-        default:
-          break;
-      }
+    const dx = px - pickup.mesh.position.x;
+    const dz = pz - pickup.mesh.position.z;
+    if (dx * dx + dz * dz < PICKUP_RADIUS * PICKUP_RADIUS && heldItem === null) {
+      pickup.collect();
+      heldItem = pickup.type;
+      updateItemBox(heldItem);
     }
-
   }
 
-  // Apply the correction vector to the player's position
-  //p.mesh.position.add(correctionVector.clone().multiplyScalar(deltaTime));
-  //applyCorrectionSmoothly(p.mesh.position, correctionVector, deltaTime);
-  //COLISION CALCULATOR
-  applyWallCorrection(p.mesh.position, correctionVector);
-  //p.mesh.position.add(correctionVector);
+  // Update placed springs (cooldown) and check trigger
+  for (const spring of placedSprings) {
+    if (!spring.active) continue;
+    spring.update();
+    if (spring.cooldown > 0) continue; // immunity period
+
+    const dx = px - spring.mesh.position.x;
+    const dz = pz - spring.mesh.position.z;
+    if (dx * dx + dz * dz < SPRING_RADIUS * SPRING_RADIUS && isGrounded) {
+      // Launch player upward
+      verticalVelocity = JUMP_FORCE * 3.5;
+      isGrounded = false;
+      spring.trigger();
+    }
+  }
+
+  // Check placed ladders — elevate player to block top when touched at ground level
+  for (const ladder of placedLadders) {
+    if (!ladder.active) continue;
+    const dx = px - ladder.mesh.position.x;
+    const dz = pz - ladder.mesh.position.z;
+    if (dx * dx + dz * dz < LADDER_RADIUS * LADDER_RADIUS && p.mesh.position.y < 0.5) {
+      p.mesh.position.y = BLOCK_TOP_Y;
+      verticalVelocity  = 0;
+      isGrounded        = true;
+    }
+  }
+
+  // Use item (press E)
+  if (wasEJustPressed() && heldItem !== null) {
+    useItem();
+  }
+}
+
+function useItem() {
+  const x = p.mesh.position.x;
+  const z = p.mesh.position.z;
+
+  if (heldItem === 'spring') {
+    const spring = new PlacedSpring(x, z);
+    scene.add(spring.mesh);
+    placedSprings.push(spring);
+
+  } else if (heldItem === 'ladder') {
+    // Orient the ladder toward the nearest wall in the player's facing direction
+    const facingX = Math.sin(p.mesh.rotation.y);
+    const facingZ = Math.cos(p.mesh.rotation.y);
+    const rotY    = Math.atan2(facingX, facingZ);
+    const ladder  = new PlacedLadder(
+      x + facingX * 0.6,
+      z + facingZ * 0.6,
+      rotY
+    );
+    scene.add(ladder.mesh);
+    placedLadders.push(ladder);
+  }
+
+  heldItem = null;
+  updateItemBox(null);
+}
+
+// ====================================================================
+
+// Y collision: detect when the player passes through the top face of a block.
+// prevY = player's Y at the START of this frame (before gravity was applied).
+// newPos = where the player will be after this frame's physics.
+//
+// The check  prevY >= bb.max.y && newPos.y <= bb.max.y  means:
+//   "the player was at or above the block top, and is now at or below it"
+// which covers both:
+//   - falling onto a block from above
+//   - standing on a block (gravity pulls newPos.y slightly below bb.max.y
+//     every frame; this check snaps it back and keeps isGrounded = true)
+//
+// Edge-fall is implicit: once the player moves their XZ position off the
+// block, the XZ circle check fails → the block-top check is skipped →
+// isGrounded stays false → the player starts falling.
+function handleBlockTopLanding(prevY, newPos) {
+  const cx = newPos.x;
+  const cz = newPos.z;
+
+  for (const bb of maze.mazeBoundingBoxes) {
+    if (bb.type !== 'wall') continue;
+
+    // Is the player's circle over this block in XZ?
+    const closestX = Math.max(bb.min.x, Math.min(cx, bb.max.x));
+    const closestZ = Math.max(bb.min.z, Math.min(cz, bb.max.z));
+    const dx = cx - closestX;
+    const dz = cz - closestZ;
+    if (dx * dx + dz * dz >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
+
+    // Did the player pass through (or sit on) this block's top face?
+    if (prevY >= bb.max.y && newPos.y <= bb.max.y) {
+      newPos.y       = bb.max.y;
+      verticalVelocity = 0;
+      isGrounded     = true;
+      return; // one block at a time is enough
+    }
+  }
+}
+
+// Circle-vs-AABB collision in XZ.
+// Instead of box-vs-box (which mis-picks the push axis at corners),
+// we treat the player as a circle of radius PLAYER_RADIUS in XZ.
+// For each maze cell we find the closest point on the cell's AABB to the
+// player centre, then push the player straight out from that point.
+// This naturally slides around corners without teleporting.
+const PLAYER_RADIUS = 0.25;
+
+function handleMazeCollisions() {
+  let bushCollisionDetected = false;
+
+  const cx = p.mesh.position.x;
+  const cz = p.mesh.position.z;
+
+  for (const mazeBB of maze.mazeBoundingBoxes) {
+
+    // Skip if the player is fully above or below this block
+    const playerBottom = p.mesh.position.y;
+    const playerTop    = playerBottom + 1.5;
+    if (playerBottom >= mazeBB.max.y || playerTop <= mazeBB.min.y) continue;
+
+    // Closest point on the AABB (XZ only) to the player centre
+    const closestX = Math.max(mazeBB.min.x, Math.min(cx, mazeBB.max.x));
+    const closestZ = Math.max(mazeBB.min.z, Math.min(cz, mazeBB.max.z));
+    const dx = cx - closestX;
+    const dz = cz - closestZ;
+    const dist2 = dx * dx + dz * dz;
+
+    if (dist2 >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
+
+    switch (mazeBB.type) {
+
+      case 'bush':
+        bushCollisionDetected = true;
+        if (!mazeCollisionSound.isPlaying && isPlayerWalking()) {
+          mazeCollisionSound.play();
+        }
+        p.speed = isShiftPressed() ? BUSH_RUN_SPEED : BUSH_WALK_SPEED;
+        break;
+
+      case 'wall':
+        if (dist2 === 0) {
+          // Centre is exactly on the box edge — push out along shortest XZ axis
+          const ox = Math.min(cx - mazeBB.min.x, mazeBB.max.x - cx);
+          const oz = Math.min(cz - mazeBB.min.z, mazeBB.max.z - cz);
+          if (ox < oz) {
+            p.mesh.position.x += cx < (mazeBB.min.x + mazeBB.max.x) / 2 ? -(ox + PLAYER_RADIUS) : (ox + PLAYER_RADIUS);
+          } else {
+            p.mesh.position.z += cz < (mazeBB.min.z + mazeBB.max.z) / 2 ? -(oz + PLAYER_RADIUS) : (oz + PLAYER_RADIUS);
+          }
+        } else {
+          // Normal case: push player out along the closest-point direction
+          const dist = Math.sqrt(dist2);
+          const overlap = PLAYER_RADIUS - dist;
+          p.mesh.position.x += (dx / dist) * overlap;
+          p.mesh.position.z += (dz / dist) * overlap;
+        }
+        break;
+    }
+  }
 
   if (!bushCollisionDetected) {
-    p.speed = 0.1;
-    if (mazeCollisionSound.isPlaying) {
-      mazeCollisionSound.stop();
-    }
+    p.speed = isShiftPressed() ? RUN_SPEED : WALK_SPEED;
+    if (mazeCollisionSound.isPlaying) mazeCollisionSound.stop();
   }
 }
 

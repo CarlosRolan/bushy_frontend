@@ -1,5 +1,19 @@
-import * as THREE from "../../three/build/three.module.js";
-import { OBJLoader } from "../../three/examples/jsm/loaders/OBJLoader.js";
+import * as THREE from "three";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+
+const RUN_CLIP_ALIASES  = ['run', 'running', 'jog', 'sprint'];
+const WALK_CLIP_ALIASES = ['walk', 'walking'];
+const IDLE_CLIP_ALIASES = ['idle', 'stand', 'standing', 'rest'];
+
+function findClip(animations, aliases) {
+  if (!animations || animations.length === 0) return null;
+  const lower = animations.map(a => ({ clip: a, key: a.name.toLowerCase() }));
+  for (const alias of aliases) {
+    const match = lower.find(({ key }) => key.includes(alias));
+    if (match) return match.clip;
+  }
+  return null;
+}
 //import { FontLoader, TextGeometry } from "../../three/examples/jsm/Addons.js";
 //import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
@@ -113,6 +127,13 @@ class Player {
     this.speed = 1;
     this.readyToStart = false;
 
+    // Animation state
+    this.mixer          = null;
+    this.idleAction     = null;
+    this.walkAction     = null;
+    this.runAction      = null;
+    this._movementState = 'idle'; // 'idle' | 'walk' | 'run'
+
     // Main group for visual components
     const group = new THREE.Group();
     group.name = "body_group";
@@ -142,10 +163,12 @@ class Player {
     this.mesh.add(textMesh);
     */
 
+    debug.visible = false; // hidden by default, toggle with G
+
     this.mesh.add(group);
     this.mesh.add(debug);
-    //const collider = getCollider(exampleMesh.geometry.boundingSphere.radius);
     const collider = createCollider(0.5);
+    collider.visible = false; // hidden by default, toggle with G
     this.mesh.add(collider);
 
     this.mesh.name = this.id; // Corrected to use this.id
@@ -203,6 +226,97 @@ class Player {
 
   getCurrentRotation() {
     this.mesh.p
+  }
+
+  setDebugVisible(visible) {
+    const debugGroup = this.mesh.getObjectByName('debug_group');
+    const collider   = this.mesh.getObjectByName('collider');
+    if (debugGroup) debugGroup.visible = visible;
+    if (collider)   collider.visible   = visible;
+  }
+
+  // Replace the body mesh with an uploaded model and set up its run animation.
+  // modelResult: { scene: THREE.Object3D, animations: THREE.AnimationClip[] }
+  setModel(modelResult) {
+    const bodyGroup = this.mesh.getObjectByName('body_group');
+
+    // Remove existing body contents
+    while (bodyGroup.children.length > 0) {
+      bodyGroup.remove(bodyGroup.children[0]);
+    }
+
+    const model = modelResult.scene;
+
+    // Scale model to 1.5 units tall — shorter than the 2-unit maze cells
+    // so the collider never spans a full cell and causes constant overlap.
+    const box = new THREE.Box3().setFromObject(model);
+    const height = box.max.y - box.min.y;
+    if (height > 0) {
+      model.scale.setScalar(1.5 / height);
+    }
+
+    // Place feet at y=0 of body_group (= world ground when player mesh y=0)
+    const box2 = new THREE.Box3().setFromObject(model);
+    model.position.y -= box2.min.y;
+
+    // Flip model 180° so its local forward (+Z) matches the player mesh forward.
+    model.rotation.y = Math.PI;
+
+    bodyGroup.add(model);
+
+    // Sphere collider matching the physics radius (0.25) and model height (1.5).
+    // Using a cylinder to represent the capsule shape: radius 0.25, height 1.5.
+    const RADIUS = 0.25;
+    const MODEL_H = 1.5;
+    const collider = this.mesh.getObjectByName('collider');
+    collider.geometry.dispose();
+    collider.geometry = new THREE.CylinderGeometry(RADIUS, RADIUS, MODEL_H, 12);
+    collider.geometry.computeBoundingBox();
+    collider.geometry.computeBoundingSphere();
+    collider.position.set(0, MODEL_H / 2, 0);
+
+    // Set up AnimationMixer on the uploaded model
+    this.mixer = new THREE.AnimationMixer(model);
+
+    const clips = modelResult.animations;
+    const setup = (clip) => {
+      if (!clip) return null;
+      const action = this.mixer.clipAction(clip);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.clampWhenFinished = false;
+      return action;
+    };
+
+    this.idleAction = setup(findClip(clips, IDLE_CLIP_ALIASES));
+    // Walk falls back to run if the model has no dedicated walk clip
+    this.walkAction = setup(findClip(clips, WALK_CLIP_ALIASES)) ??
+                      setup(findClip(clips, RUN_CLIP_ALIASES));
+    this.runAction  = setup(findClip(clips, RUN_CLIP_ALIASES)) ??
+                      this.walkAction;
+
+    // Start in idle
+    this._movementState = 'idle';
+    if (this.idleAction) this.idleAction.play();
+  }
+
+  // Transition between 'idle', 'walk' and 'run'
+  setMovementState(state) {
+    if (state === this._movementState) return;
+
+    const actions = { idle: this.idleAction, walk: this.walkAction, run: this.runAction };
+    const prev = actions[this._movementState];
+    const next = actions[state];
+
+    this._movementState = state;
+    if (prev && prev !== next) prev.fadeOut(0.15);
+    if (next) next.reset().fadeIn(0.15).play();
+  }
+
+  // Call every frame with the elapsed delta time to advance animations
+  updateAnimation(delta) {
+    if (this.mixer) {
+      this.mixer.update(delta);
+    }
   }
 }
 
