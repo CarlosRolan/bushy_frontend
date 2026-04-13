@@ -42,6 +42,12 @@
                 <span class="legend-floor">■ Floor</span>
                 <span class="legend-spawn">● Spawn</span>
                 <span class="legend-star">★ Goal</span>
+                <div id="ghost-count-control">
+                    <span>Ghosts</span>
+                    <button class="ghost-count-btn" onclick="changeGhostCount(-1)">−</button>
+                    <span id="ghost-count-value">3</span>
+                    <button class="ghost-count-btn" onclick="changeGhostCount(+1)">+</button>
+                </div>
             </div>
             <canvas id="map-preview-canvas"></canvas>
         </div>

@@ -144,14 +144,18 @@ function _bfsPath(fromPos, toPos, mazeData, cs) {
 export function spawnGhosts(scene, mazeData, cellSize) {
   const rows = mazeData.length, cols = mazeData[0].length;
 
-  // Three far corners, away from player spawn near [0][1]
+  // Spawn order: entrance-area first (easy to test), then far corners.
+  // Ghost count is read from localStorage (set from the map preview UI).
+  const count = Math.min(4, Math.max(1, parseInt(localStorage.getItem('ghostCount') || '3', 10)));
+
   const corners = [
-    [rows - 4, cols - 4],
-    [rows - 4,         4],
-    [        4, cols - 4],
+    [3,         3        ],  // near entrance — always first for testing
+    [rows - 4,  cols - 4 ],  // far bottom-right
+    [rows - 4,  4        ],  // far bottom-left
+    [4,         cols - 4 ],  // far top-right
   ];
 
-  return corners.map(([r, c]) => {
+  return corners.slice(0, count).map(([r, c]) => {
     const [or, oc] = _findOpen(mazeData, r, c);
     const { x, z } = _cellToWorld(or, oc, mazeData, cellSize);
     const ghost = new Ghost(x, z);

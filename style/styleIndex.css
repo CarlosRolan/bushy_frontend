@@ -138,6 +138,7 @@ button:hover {
 
 #map-preview-legend {
   display: flex;
+  align-items: center;
   gap: 14px;
   font-family: monospace;
   font-size: 12px;
@@ -148,6 +149,38 @@ button:hover {
 .legend-floor { color: #a8d8a8; }
 .legend-spawn { color: #00cfff; }
 .legend-star  { color: #ffd700; }
+
+#ghost-count-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: #b8aaff;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+#ghost-count-value {
+  min-width: 14px;
+  text-align: center;
+  font-weight: bold;
+  color: #fff;
+}
+
+.ghost-count-btn {
+  width: auto;
+  padding: 1px 8px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  background: rgba(120, 100, 220, 0.4);
+  border: 1px solid rgba(180, 160, 255, 0.4);
+  border-radius: 4px;
+  color: #ddd;
+}
+.ghost-count-btn:hover {
+  background: rgba(120, 100, 220, 0.7);
+}
 
 #map-preview-canvas {
   display: block;
