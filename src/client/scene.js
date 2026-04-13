@@ -53,6 +53,7 @@ const BUSH_RUN_SPEED  = 0.04;
 // Jump physics
 const JUMP_FORCE = 0.15;  // initial upward velocity
 const GRAVITY    = 0.008; // subtracted from vertical velocity each frame
+const FLY_SPEED  = 0.12;  // vertical speed while in debug fly mode
 let verticalVelocity = 0;
 let isGrounded = true;
 
@@ -80,6 +81,11 @@ function toggleDebug() {
   debugBoxHelpers.forEach(h => h.visible = debugMode);
   p.setDebugVisible(debugMode);
   document.getElementById('debugPanel').style.display = debugMode ? 'block' : 'none';
+  // Exiting fly mode: drop from current height with clean velocity
+  if (!debugMode) {
+    verticalVelocity = 0;
+    isGrounded = false;
+  }
 }
 
 window.addEventListener('keydown', e => {
@@ -169,28 +175,37 @@ function updatePlayer() {
   // Capture grounded state before this frame's physics resets it
   const wasGrounded = isGrounded;
 
-  // Jump
-  if (wasGrounded && wasSpaceJustPressed()) {
-    verticalVelocity = JUMP_FORCE;
-  }
+  if (debugMode) {
+    // ── Fly mode (debug) ─────────────────────────────────────────────────
+    // Space = ascend, F = descend. No gravity, no landing checks.
+    onKey("Space", () => { newPos.y += FLY_SPEED; });
+    onKey("F",     () => { newPos.y -= FLY_SPEED; });
+    isGrounded = false;
+  } else {
+    // ── Normal physics ────────────────────────────────────────────────────
+    // Jump
+    if (wasGrounded && wasSpaceJustPressed()) {
+      verticalVelocity = JUMP_FORCE;
+    }
 
-  // Gravity always acts — edge-fall is handled implicitly:
-  // if there's no surface under the player after XZ movement the
-  // block-top check simply won't match and isGrounded stays false.
-  verticalVelocity -= GRAVITY;
-  newPos.y += verticalVelocity;
-  isGrounded = false; // will be re-set by collision resolution below
+    // Gravity always acts — edge-fall is handled implicitly:
+    // if there's no surface under the player after XZ movement the
+    // block-top check simply won't match and isGrounded stays false.
+    verticalVelocity -= GRAVITY;
+    newPos.y += verticalVelocity;
+    isGrounded = false; // will be re-set by collision resolution below
 
-  // Land on world ground (y = 0)
-  if (newPos.y <= 0) {
-    newPos.y = 0;
-    verticalVelocity = 0;
-    isGrounded = true;
-  }
+    // Land on world ground (y = 0)
+    if (newPos.y <= 0) {
+      newPos.y = 0;
+      verticalVelocity = 0;
+      isGrounded = true;
+    }
 
-  // Land on top of maze blocks
-  if (!isGrounded) {
-    handleBlockTopLanding(currentPosition.y, newPos);
+    // Land on top of maze blocks
+    if (!isGrounded) {
+      handleBlockTopLanding(currentPosition.y, newPos);
+    }
   }
 
   // Animation state based on XZ movement + shift

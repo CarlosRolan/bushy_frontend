@@ -75,64 +75,51 @@ function generateMazeData(mazeData) {
 //=====================================================================
 
 
-function initMaze(mazeData) {
-  const mazeGroup = new THREE.Group();
-  const mazeCellGeometry = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
+// Shared materials – created once, reused on rebuild
+const _textureLoader = new THREE.TextureLoader();
+const _bushMaterial  = new THREE.MeshBasicMaterial({ map: _textureLoader.load('res/img/texture_maze.jpg') });
+const _wallMaterial  = new THREE.MeshBasicMaterial({ map: _textureLoader.load('res/img/texture_maze_wall.jpg') });
+const _cellGeometry  = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
 
-  // Load the bush texture
-  const textureLoader = new THREE.TextureLoader();
-
-  const bushTexture = textureLoader.load('res/img/texture_maze.jpg'); // Replace with your texture file path
-  const bushMaterial = new THREE.MeshBasicMaterial({ map: bushTexture });
-
-  const wallTexture = textureLoader.load('res/img/texture_maze_wall.jpg'); // Replace with your texture file path
-  const wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
-
-  const debugMaterialWall = new THREE.MeshBasicMaterial({ wireframe: true, color: "#FF0000" });
-  const debugMaterialBush = new THREE.MeshBasicMaterial({ wireframe: true, color: "#00FF00" });
-
-  const offsetX = (mazeData[0].length / 2) * cellSize; // Adjusted for maze width
+function _populateMaze(group, mazeData) {
+  const offsetX = (mazeData[0].length / 2) * cellSize;
   const offsetZ = (mazeData.length / 2) * cellSize;
 
   for (let i = 0; i < mazeData.length; i++) {
     for (let j = 0; j < mazeData[i].length; j++) {
-      if (mazeData[i][j] === 2) {
+      const v = mazeData[i][j];
+      if (v !== 1 && v !== 2) continue;
 
-        // BUSH MATERIAL
-        const bush = new THREE.Mesh(mazeCellGeometry, bushMaterial);
-        bush.position.set(j * cellSize - offsetX + halfCellSize, 1, i * cellSize - offsetZ + halfCellSize);
-        mazeGroup.add(bush);
+      const mat  = v === 2 ? _bushMaterial : _wallMaterial;
+      const mesh = new THREE.Mesh(_cellGeometry, mat);
+      mesh.position.set(j * cellSize - offsetX + halfCellSize, 1, i * cellSize - offsetZ + halfCellSize);
+      group.add(mesh);
 
-        const boundingBox = new THREE.Box3().setFromObject(bush);
-        boundingBox.type = 'bush';
-        mazeBoundingBoxes.push(boundingBox);
-
-      } else if (mazeData[i][j] === 1) {
-
-        // WALL MATERIAL
-        const wall = new THREE.Mesh(mazeCellGeometry, wallMaterial);
-        wall.position.set(j * cellSize - offsetX + halfCellSize, 1, i * cellSize - offsetZ + halfCellSize);
-        mazeGroup.add(wall);
-
-        const boundingBox = new THREE.Box3().setFromObject(wall);
-        boundingBox.type = 'wall';
-        mazeBoundingBoxes.push(boundingBox);
-      }
+      const bb   = new THREE.Box3().setFromObject(mesh);
+      bb.type    = v === 2 ? 'bush' : 'wall';
+      mazeBoundingBoxes.push(bb);
     }
   }
+}
 
+function initMaze(mazeData) {
+  const mazeGroup = new THREE.Group();
+  _populateMaze(mazeGroup, mazeData);
   return mazeGroup;
 }
 
-//const mazeDataArray = createArray(51, 51);
-//const mazeData = generateMazeData(mazeXY);
+// Rebuild the maze group in-place with new data (background scene keeps its ref)
+function rebuildMaze(newMazeData) {
+  while (maze.children.length) maze.remove(maze.children[0]);
+  mazeBoundingBoxes.length = 0;
+  _populateMaze(maze, newMazeData);
+  maze.mazeData = newMazeData;
+}
 
 const maze = initMaze(staticMazeData);
-
-console.log(maze);
 
 maze.mazeBoundingBoxes = mazeBoundingBoxes;
 maze.cellSize = cellSize;
 maze.mazeData = staticMazeData;
 
-export { maze };
+export { maze, rebuildMaze, generateMazeData, createArray };
