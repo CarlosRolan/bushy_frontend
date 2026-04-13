@@ -21,7 +21,6 @@
         <h1>BushyLaberynth</h1>
         <label>Carlos Rolán Díaz</label>
         <button onclick="enterGame()">Enter Game</button>
-        <button id="btn-new-map" onclick="generateNewMap()">New Map</button>
         <button id="btn-preview" onclick="showMapPreview()">Map Preview</button>
     </div>
 
@@ -32,7 +31,10 @@
         <div id="map-preview-box" onclick="event.stopPropagation()">
             <div id="map-preview-header">
                 <span>Map Preview</span>
-                <button id="map-preview-close" onclick="closeMapPreview()">✕</button>
+                <div id="map-preview-actions">
+                    <button id="btn-new-map" onclick="generateNewMap(); showMapPreview()">New Map</button>
+                    <button id="map-preview-close" onclick="closeMapPreview()">✕</button>
+                </div>
             </div>
             <div id="map-preview-legend">
                 <span class="legend-wall">■ Wall</span>
