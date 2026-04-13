@@ -20,8 +20,19 @@
     <div id="menu">
         <h1>BushyLaberynth</h1>
         <label>Carlos Rolán Díaz</label>
-        <button onclick="enterGame()">Enter Game</button>
+
         <button id="btn-preview" onclick="showMapPreview()">Map Preview</button>
+
+        <div class="menu-divider">Solo</div>
+        <button id="btn-solo" onclick="playSolo()">Play Solo</button>
+
+        <div class="menu-divider">Online</div>
+        <button id="btn-create-room" onclick="createRoom()">Create Room</button>
+        <div id="join-row">
+            <input id="join-code-input" placeholder="Room code" maxlength="6" oninput="clearJoinError()" onkeydown="if(event.key==='Enter') joinRoom()">
+            <button id="btn-join-room" onclick="joinRoom()">Join</button>
+        </div>
+        <span id="join-error"></span>
     </div>
 
     <div id="background"></div>
@@ -54,8 +65,31 @@
     </div>
 
     <script>
-        function enterGame() {
-            window.location.href = "game.html";
+        function playSolo() {
+            localStorage.setItem('gameMode', 'solo');
+            window.location.href = 'game.html';
+        }
+
+        function createRoom() {
+            const code = Math.random().toString(36).slice(2, 6).toUpperCase();
+            localStorage.setItem('gameMode', 'online');
+            localStorage.setItem('roomCode', code);
+            window.location.href = 'game.html';
+        }
+
+        function joinRoom() {
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+            if (!code) {
+                document.getElementById('join-error').textContent = 'Enter a room code';
+                return;
+            }
+            localStorage.setItem('gameMode', 'online');
+            localStorage.setItem('roomCode', code);
+            window.location.href = 'game.html';
+        }
+
+        function clearJoinError() {
+            document.getElementById('join-error').textContent = '';
         }
     </script>
 

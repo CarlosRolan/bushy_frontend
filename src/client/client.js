@@ -15,50 +15,45 @@ import Msg, {
 } from "../msg.mjs";
 import { loossingSound } from "./audioLoader.js";
 
-const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+const gameMode = localStorage.getItem('gameMode') || 'solo';
+const isOnline  = gameMode === 'online';
+
+const protocol     = window.location.protocol === "https:" ? "wss:" : "ws:";
 const defaultWsUrl = `${protocol}//${window.location.host}`;
 
 function normalizeWsUrl(url) {
-  if (!url) {
-    return defaultWsUrl;
-  }
-
-  if (url.startsWith("https://")) {
-    return `wss://${url.slice("https://".length)}`;
-  }
-
-  if (url.startsWith("http://")) {
-    return `ws://${url.slice("http://".length)}`;
-  }
-
+  if (!url)                      return defaultWsUrl;
+  if (url.startsWith("https://")) return `wss://${url.slice("https://".length)}`;
+  if (url.startsWith("http://"))  return `ws://${url.slice("http://".length)}`;
   return url;
 }
 
-const ws = new WebSocket(normalizeWsUrl(process.env.SERVER_URL));
+// ── WebSocket — only open in online mode ─────────────────────────────────────
+let ws = null;
 
-// Handle WebSocket events =======================
-ws.onopen = function () {
-  console.log("Connection established");
-  registerPlayer();
-};
+if (isOnline) {
+  ws = new WebSocket(normalizeWsUrl(process.env.SERVER_URL));
 
-ws.onmessage = function ({ data }) {
-  handleServerResponse(JSON.parse(data));
-};
+  ws.onopen = function () {
+    console.log("Connection established");
+    registerPlayer();
+  };
 
-ws.onerror = function (error) {
-  console.error("WebSocket error:", error);
-};
+  ws.onmessage = function ({ data }) {
+    handleServerResponse(JSON.parse(data));
+  };
 
-ws.onclose = function () {
-  console.log("Connection closed");
-};
-//================================================
+  ws.onerror = function (error) {
+    console.error("WebSocket error:", error);
+  };
 
+  ws.onclose = function () {
+    console.log("Connection closed");
+  };
+}
+
+// ── Message handling ─────────────────────────────────────────────────────────
 function handleServerResponse(serverMsg) {
-
-  console.log(serverMsg);
-
   const { ACTION, CONTENT } = serverMsg;
 
   switch (ACTION) {
@@ -72,37 +67,26 @@ function handleServerResponse(serverMsg) {
       break;
 
     case ACTION_EXIT:
-      console.log("Deleting a player");
       deleteEnemy(CONTENT);
       break;
 
     case ACTION_NEW_POS:
-      console.log("Updating enemy position");
       const { id, position, rotation } = CONTENT;
       updateEnemyPosition(id, position, rotation);
       break;
 
     case ACTION_LOST:
-      console.log("You LOST");
-      const playerWhoWin = CONTENT;
-      console.log(playerWhoWin);
       lost();
       break;
 
-    //Notifies to the players in the map the new player
     case ACTION_NEW_PLAYER:
-      console.log("New Player connected");
       addEnemy(CONTENT);
       break;
 
-    //Gets the player already in map
     case ACTION_MAP_INFO:
-      const allPlayersId = CONTENT;
-      allPlayersId.forEach(id => {
-        if (p.id != id) {
-          addEnemy(id);
-        }
-      })
+      CONTENT.forEach(id => {
+        if (p.id !== id) addEnemy(id);
+      });
       break;
 
     case ACTION_MAX_PLAYERS:
@@ -115,39 +99,43 @@ function handleServerResponse(serverMsg) {
   }
 }
 
-//On Open connection
 function registerPlayer() {
-  const msg = new Msg(ACTION_REGISTER, p.id);
-  sendMessage(msg);
+  sendMessage(new Msg(ACTION_REGISTER, p.id));
 }
 
-function sendPosition(position) {
-  const msg = new Msg(ACTION_NEW_POS, position);
-  sendMessage(msg);
+function sendMessage(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(msg.pack());
+  }
 }
 
+function updateEnemyPosition(id, position, rotation) {
+  enemies.forEach(e => {
+    if (e.id === id) {
+      e.move(position.x, position.y, position.z);
+      e.rotate(rotation);
+    }
+  });
+  updateEnemies(enemies);
+}
+
+// ── End-game ─────────────────────────────────────────────────────────────────
 function endGame(text) {
-  // Show the "YOU WIN" message
-  const endMsg = document.getElementById("endMsg");
-  endMsg.innerHTML = text;
-  endMsg.style.display = "block";
-
-  // Fade the screen to black
+  const endMsg     = document.getElementById("endMsg");
   const blackOverlay = document.getElementById("blackOverlay");
+
+  endMsg.innerHTML     = text;
+  endMsg.style.display = "block";
   blackOverlay.style.opacity = "1";
 
-  // Optionally, add a delay before transitioning to the next screen or resetting the game
   setTimeout(() => {
     window.location = "index.html";
-  }, 3000); // Adjust the delay time as needed
+  }, 3000);
 }
 
 function win(player) {
-  const { id } = player;
-  console.log(id);
   endGame("WIN");
-  const winMsg = new Msg(ACTION_WIN, player.id);
-  sendMessage(winMsg);
+  if (isOnline) sendMessage(new Msg(ACTION_WIN, player.id));
 }
 
 function lost() {
@@ -155,26 +143,8 @@ function lost() {
   loossingSound.play();
 }
 
-function sendMessage(msg) {
-  if (ws.readyState === ws.OPEN) {
-    ws.send(msg.pack());
-  }
-}
-
-function updateEnemyPosition(id, position, rotation) {
-  enemies.forEach(e => {
-    if (e.id == id) {
-      e.move(position.x, position.y, position.z);
-      e.rotate(rotation);
-      return;
-    }
-  });
-
-  updateEnemies(enemies);
-}
-
-
 function getConnectionStatus() {
+  if (!ws) return 'Solo';
   switch (ws.readyState) {
     case WebSocket.CONNECTING: return 'Connecting';
     case WebSocket.OPEN:       return 'Connected';
@@ -185,3 +155,8 @@ function getConnectionStatus() {
 }
 
 export { sendPosition, win, lost, getConnectionStatus };
+
+function sendPosition(position) {
+  if (!isOnline) return;
+  sendMessage(new Msg(ACTION_NEW_POS, position));
+}
