@@ -177,9 +177,9 @@ function _playerInBush() {
 
 function updateGhosts() {
   const pPos    = p.mesh.position;
-  const visible = !_playerInBush();
+  const visible = !gameOver && !_playerInBush();
   for (const ghost of ghosts) {
-    if (!gameOver) ghost.update(mazeData, cellSize, pPos, visible);
+    ghost.update(mazeData, cellSize, pPos, visible);
     if (!gameOver && !invincible && ghost.catches(pPos)) triggerGameOver();
   }
 }
