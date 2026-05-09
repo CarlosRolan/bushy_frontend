@@ -15,12 +15,14 @@ export class Ghost {
     this.mesh.position.set(x, 0.7, z);
   }
 
-  update(mazeData, cellSize, playerPos) {
-    // Recompute path periodically
+  update(mazeData, cellSize, playerPos, playerVisible = true) {
+    // Recompute path periodically, but only when the player is visible
     this._timer++;
     if (this._timer >= PATH_REFRESH) {
       this._timer = 0;
-      this.path   = _bfsPath(this.mesh.position, playerPos, mazeData, cellSize);
+      if (playerVisible) {
+        this.path = _bfsPath(this.mesh.position, playerPos, mazeData, cellSize);
+      }
     }
 
     // Follow next waypoint

@@ -168,10 +168,18 @@ function spectate() {
   //playerCamera.lookAt(star);
 }
 
+function _playerInBush() {
+  const rows = mazeData.length, cols = mazeData[0].length;
+  const row = Math.max(0, Math.min(rows - 1, Math.round((p.mesh.position.z + (rows / 2) * cellSize - cellSize / 2) / cellSize)));
+  const col = Math.max(0, Math.min(cols - 1, Math.round((p.mesh.position.x + (cols / 2) * cellSize - cellSize / 2) / cellSize)));
+  return mazeData[row][col] === 2;
+}
+
 function updateGhosts() {
-  const pPos = p.mesh.position;
+  const pPos    = p.mesh.position;
+  const visible = !_playerInBush();
   for (const ghost of ghosts) {
-    if (!gameOver) ghost.update(mazeData, cellSize, pPos);
+    if (!gameOver) ghost.update(mazeData, cellSize, pPos, visible);
     if (!gameOver && !invincible && ghost.catches(pPos)) triggerGameOver();
   }
 }
