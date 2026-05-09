@@ -19,6 +19,11 @@
 
 <body>
 
+  <!-- Room code badge — only shown in online mode -->
+  <div id="roomBadge">
+    ROOM <span id="roomCodeText"></span>
+  </div>
+
   <div id="canvas" class="canvas"></div>
 
   <div id="endMsg"></div>
@@ -46,6 +51,17 @@
     <p id="dbgPos">Pos: --</p>
   </div>
 
+
+  <script>
+    (function () {
+      const mode = localStorage.getItem('gameMode');
+      const code = localStorage.getItem('roomCode');
+      if (mode === 'online' && code) {
+        document.getElementById('roomCodeText').textContent = code;
+        document.getElementById('roomBadge').style.display = 'flex';
+      }
+    })();
+  </script>
 
   <script src="./dist/game.bundle.js"></script>
 

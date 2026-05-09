@@ -28,6 +28,7 @@ import {
   ITEM_META,
 } from "./items.js";
 import { updateItemBox } from "./ui.js";
+import { spawnGhosts } from "./ghost.js";
 
 const { boundries } = ground;
 const { minX, maxX, minZ, maxZ } = boundries;
@@ -65,6 +66,14 @@ let heldItem     = null; // 'spring' | 'ladder' | null
 let pickupTime   = 0;    // drives pickup animation
 let debugMode = false;
 const debugBoxHelpers = [];
+
+// Ghost enemies
+let ghosts   = [];
+let gameOver = false;
+
+// Player respawn position (entrance of the maze)
+const SPAWN_X = 1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize;
+const SPAWN_Z = 0 * cellSize - mazeData.length  / 2 * cellSize + halfCellSize;
 
 function initDebugHelpers() {
   maze.mazeBoundingBoxes.forEach(bb => {
@@ -104,6 +113,7 @@ p.mesh.position.set(1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellS
 scene.add(maze, p.mesh, ground, star, dirlight, ambient);
 initDebugHelpers();
 pickups = spawnPickups(scene, mazeData, cellSize);
+ghosts  = spawnGhosts(scene, mazeData, cellSize);
 
 // Auto-load the default soldier model on startup
 loadDefaultModel('res/data/Soldier.glb').then((modelResult) => {
@@ -133,8 +143,11 @@ function animate() {
   trackFPS();
   updateScene();
   onKey("X", spectate);
-  updatePlayer();
-  updateItems();
+  if (!gameOver) {
+    updatePlayer();
+    updateItems();
+  }
+  updateGhosts();
   if (debugMode) updateDebugPanel();
   renderer.render(scene, playerCamera);
 }
@@ -152,6 +165,37 @@ function spectate() {
   spectacting = true;
   playerCamera.position.set(0, 100, 0);
   //playerCamera.lookAt(star);
+}
+
+function updateGhosts() {
+  const pPos = p.mesh.position;
+  for (const ghost of ghosts) {
+    ghost.update(mazeData, cellSize, pPos);
+    if (!gameOver && ghost.catches(pPos)) triggerGameOver();
+  }
+}
+
+function triggerGameOver() {
+  gameOver = true;
+
+  const overlay = document.getElementById('blackOverlay');
+  const endMsg  = document.getElementById('endMsg');
+
+  endMsg.style.color   = '#b8aaff';
+  endMsg.innerHTML     = 'CAUGHT!<br><span style="font-size:0.4em;color:#ccc;font-family:monospace">Respawning in 3s…</span>';
+  endMsg.style.display = 'block';
+  overlay.style.opacity = '1';
+
+  setTimeout(() => {
+    overlay.style.opacity = '0';
+    endMsg.style.display  = 'none';
+
+    // Respawn player at entrance
+    p.mesh.position.set(SPAWN_X, 0, SPAWN_Z);
+    verticalVelocity = 0;
+    isGrounded       = true;
+    gameOver         = false;
+  }, 3000);
 }
 
 // ======== UPDATE METHODS =====/

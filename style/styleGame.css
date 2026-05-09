@@ -149,6 +149,33 @@ canvas {
 
 #debugPanel p { margin: 0; }
 
+/* Room code badge — top-left, online mode only */
+#roomBadge {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(100, 200, 255, 0.35);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  z-index: 100;
+}
+
+#roomCodeText {
+  font-size: 15px;
+  font-weight: bold;
+  color: #7cf;
+  letter-spacing: 0.14em;
+}
+
 #blackOverlay {
   position: fixed;
   top: 0;

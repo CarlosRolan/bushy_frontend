@@ -10,6 +10,21 @@ scene.add(maze, ground);
 // Tracks the maze data currently displayed (starts with the static default)
 let currentMazeData = maze.mazeData;
 
+// ── Ghost count (persisted via localStorage) ─────────────────────────────────
+const MIN_GHOSTS = 1;
+const MAX_GHOSTS = 4;
+
+function _getGhostCount() {
+  return Math.min(MAX_GHOSTS, Math.max(MIN_GHOSTS,
+    parseInt(localStorage.getItem('ghostCount') || '3', 10)));
+}
+
+window.changeGhostCount = function (delta) {
+  const next = Math.min(MAX_GHOSTS, Math.max(MIN_GHOSTS, _getGhostCount() + delta));
+  localStorage.setItem('ghostCount', String(next));
+  document.getElementById('ghost-count-value').textContent = next;
+};
+
 // ── Auto-generate new map ────────────────────────────────────────────────────
 window.generateNewMap = function () {
   const SIZE = 51;
@@ -21,6 +36,7 @@ window.generateNewMap = function () {
 // ── 2-D top-down preview ─────────────────────────────────────────────────────
 window.showMapPreview = function () {
   _drawPreview(currentMazeData);
+  document.getElementById('ghost-count-value').textContent = _getGhostCount();
   document.getElementById('map-preview-overlay').style.display = 'flex';
 };
 
