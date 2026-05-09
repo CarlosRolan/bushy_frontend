@@ -15,13 +15,14 @@ export class Ghost {
     this.mesh.position.set(x, 0.7, z);
   }
 
-  update(mazeData, cellSize, playerPos, playerVisible = true) {
+  update(mazeData, cellSize, playerPositions, playerVisible = true) {
     // Recompute path periodically, but only when the player is visible
     this._timer++;
     if (this._timer >= PATH_REFRESH) {
       this._timer = 0;
       if (playerVisible) {
-        this.path = _bfsPath(this.mesh.position, playerPos, mazeData, cellSize);
+        const target = _nearestPosition(this.mesh.position, playerPositions);
+        this.path = _bfsPath(this.mesh.position, target, mazeData, cellSize);
       }
     }
 
@@ -49,6 +50,10 @@ export class Ghost {
     const dx = this.mesh.position.x - playerPos.x;
     const dz = this.mesh.position.z - playerPos.z;
     return Math.sqrt(dx * dx + dz * dz) < CATCH_RADIUS;
+  }
+
+  catchesAny(positions) {
+    return positions.some(pos => this.catches(pos));
   }
 }
 
@@ -85,6 +90,19 @@ function _buildMesh() {
   }
 
   return group;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _nearestPosition(from, positions) {
+  let nearest = positions[0];
+  let bestDist = Infinity;
+  for (const pos of positions) {
+    const dx = pos.x - from.x, dz = pos.z - from.z;
+    const d = dx * dx + dz * dz;
+    if (d < bestDist) { bestDist = d; nearest = pos; }
+  }
+  return nearest;
 }
 
 // ── BFS pathfinding ───────────────────────────────────────────────────────────

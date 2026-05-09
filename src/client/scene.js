@@ -176,10 +176,11 @@ function _playerInBush() {
 }
 
 function updateGhosts() {
-  const pPos    = p.mesh.position;
-  const visible = !gameOver && !_playerInBush();
+  const pPos      = p.mesh.position;
+  const visible   = !gameOver && !_playerInBush();
+  const allPos    = [pPos, ...[...enemies].map(e => e.mesh.position)];
   for (const ghost of ghosts) {
-    ghost.update(mazeData, cellSize, pPos, visible);
+    ghost.update(mazeData, cellSize, allPos, visible);
     if (!gameOver && !invincible && ghost.catches(pPos)) triggerGameOver();
   }
 }
