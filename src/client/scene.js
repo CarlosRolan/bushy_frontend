@@ -70,6 +70,7 @@ const debugBoxHelpers = [];
 // Ghost enemies
 let ghosts   = [];
 let gameOver = false;
+let invincible = false;
 
 // Player respawn position (entrance of the maze)
 const SPAWN_X = 1 * cellSize - mazeData[0].length / 2 * cellSize + halfCellSize;
@@ -171,7 +172,7 @@ function updateGhosts() {
   const pPos = p.mesh.position;
   for (const ghost of ghosts) {
     ghost.update(mazeData, cellSize, pPos);
-    if (!gameOver && ghost.catches(pPos)) triggerGameOver();
+    if (!gameOver && !invincible && ghost.catches(pPos)) triggerGameOver();
   }
 }
 
@@ -195,6 +196,8 @@ function triggerGameOver() {
     verticalVelocity = 0;
     isGrounded       = true;
     gameOver         = false;
+    invincible       = true;
+    setTimeout(() => { invincible = false; }, 2000);
   }, 3000);
 }
 
