@@ -171,7 +171,7 @@ function spectate() {
 function updateGhosts() {
   const pPos = p.mesh.position;
   for (const ghost of ghosts) {
-    ghost.update(mazeData, cellSize, pPos);
+    if (!gameOver) ghost.update(mazeData, cellSize, pPos);
     if (!gameOver && !invincible && ghost.catches(pPos)) triggerGameOver();
   }
 }
