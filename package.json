@@ -18,7 +18,7 @@
     "@types/node": "^20.14.2",
     "fs": "^0.0.1-security",
     "three": "^0.165.0",
-    "ws": "^8.17.1"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "dotenv-webpack": "^8.1.0",
